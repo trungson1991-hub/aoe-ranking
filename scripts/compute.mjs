@@ -57,14 +57,23 @@ async function fetchUserMatches(uuid, fromEpoch) {
 
 const teamSet = new Set(TEAM);
 
-// Trận nội bộ hợp lệ:
-//   - CẢ HAI đội đều có người (loại các bản ghi 1 đội rỗng như 1v0/2v0 — không có đối thủ),
-//   - MỌI người chơi của cả 2 đội đều thuộc team (chỉ cần 1 người ngoài team là loại).
+// Trận nội bộ: MỌI người chơi (đang có mặt) đều thuộc team — chỉ cần 1 người ngoài team là loại.
 function isInternal(m) {
-  const red = m.red_team_members;
-  const blue = m.blue_team_members;
-  if (red.length === 0 || blue.length === 0) return false;
-  return [...red, ...blue].every((p) => teamSet.has(p.user_uuid));
+  const parts = [...m.red_team_members, ...m.blue_team_members];
+  return parts.length > 0 && parts.every((p) => teamSet.has(p.user_uuid));
+}
+
+// Trận "ma" (bị loại khỏi tính ELO):
+//   1) Chỉ có 1 người chơi.
+//   2) Tổng (kills + losses) của tất cả người chơi < 10 (trận không có giao tranh thật).
+function isGhost(m) {
+  const nPlayers = m.red_team_members.length + m.blue_team_members.length;
+  if (nPlayers <= 1) return true;
+  let kd = 0;
+  for (const s of Object.values(m.statistics || {})) {
+    kd += (s.kills ?? 0) + (s.losses ?? 0);
+  }
+  return kd < 10;
 }
 
 // Các thể loại tính ELO riêng (chỉ trận cân người). Trận lệch (vd 3v4) chỉ vào ELO tổng.
@@ -147,7 +156,7 @@ async function main() {
   }
 
   const internal = [...union.values()]
-    .filter(isInternal)
+    .filter((m) => isInternal(m) && !isGhost(m))
     .sort((a, b) => a.created_time - b.created_time);
 
   const totals = emptyTotals();

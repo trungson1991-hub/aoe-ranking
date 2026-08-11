@@ -9,6 +9,8 @@ Web tính điểm ELO riêng cho các thành viên team dựa trên API lịch s
   trượt, cấu hình `WINDOW_MONTHS` trong `scripts/team.mjs`). Mỗi lần cập nhật tính lại toàn bộ
   cửa sổ này — trận cũ hơn 6 tháng tự rơi ra.
 - Chỉ tính trận **nội bộ**: TẤT CẢ người chơi của cả 2 đội đều là thành viên team.
+- Loại **trận "ma"**: (1) chỉ có 1 người chơi, hoặc (2) tổng `kills + losses` (giết + mất quân)
+  của tất cả người chơi `< 10` (trận không có giao tranh thật).
 - Mỗi trận nội bộ cộng `elo_change` (API GPlay trả sẵn) vào ELO từng người. **Cho phép âm.**
 - Xếp hạng theo ELO giảm dần, chia tier: **Top 1 = 3 người, Top 2 = 2, Top 3 = 2, Top 4 = 3**.
 - Ngoài ELO **Tổng**, còn tính ELO **riêng cho từng thể loại 1v1 / 2v2 / 3v3 / 4v4** (chỉ trận

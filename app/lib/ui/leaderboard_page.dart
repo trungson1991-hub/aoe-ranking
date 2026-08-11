@@ -322,104 +322,209 @@ class _Chip extends StatelessWidget {
   }
 }
 
-class _MemberCard extends StatelessWidget {
+const Map<int, String> _medals = {1: '🥇', 2: '🥈', 3: '🥉'};
+
+class _MemberCard extends StatefulWidget {
   const _MemberCard({required this.ranked, required this.accent});
 
   final RankedMember ranked;
   final Color accent;
 
   @override
+  State<_MemberCard> createState() => _MemberCardState();
+}
+
+class _MemberCardState extends State<_MemberCard>
+    with TickerProviderStateMixin {
+  late final AnimationController _entrance;
+  late final AnimationController _glow;
+  late final Animation<double> _fade;
+  late final Animation<Offset> _slide;
+
+  bool get _isTop3 => widget.ranked.rank >= 1 && widget.ranked.rank <= 3;
+
+  @override
+  void initState() {
+    super.initState();
+    _entrance = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 450),
+    );
+    // Xuất hiện so le theo thứ hạng cho hiệu ứng "đổ" mượt.
+    final delayMs = 40 * widget.ranked.rank.clamp(0, 15).toInt();
+    Future.delayed(Duration(milliseconds: delayMs), () {
+      if (mounted) _entrance.forward();
+    });
+    _fade = CurvedAnimation(parent: _entrance, curve: Curves.easeOut);
+    _slide = Tween<Offset>(begin: const Offset(0, 0.12), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _entrance, curve: Curves.easeOutCubic));
+    _glow = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    if (_isTop3) _glow.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _entrance.dispose();
+    _glow.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final m = ranked.member;
-    final s = ranked.stat;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accent.withOpacity(0.35), width: 1),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 28,
-            child: Text(
-              ranked.rank > 0 ? '#${ranked.rank}' : '—',
-              style: TextStyle(
-                color: accent,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: const Color(0xFF334155),
-            backgroundImage:
-                m.avatarUrl.isNotEmpty ? NetworkImage(m.avatarUrl) : null,
-            child: m.avatarUrl.isEmpty
-                ? Text(
-                    m.name.isNotEmpty ? m.name[0].toUpperCase() : '?',
-                    style: const TextStyle(color: Colors.white),
-                  )
-                : null,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  m.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  s.games == 0
-                      ? 'chưa có trận'
-                      : '${s.wins}T-${s.losses}B · ${s.games} trận · '
-                          'tỉ lệ ${(s.winRate * 100).toStringAsFixed(0)}%',
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
-                ),
-                if (m.lastPlayedVN != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    'Chơi gần nhất: ${DateFormat('dd/MM/yyyy').format(m.lastPlayedVN!)}',
-                    style: const TextStyle(color: Colors.white38, fontSize: 11),
-                  ),
+    final accent = widget.accent;
+    Widget card;
+    if (_isTop3) {
+      card = AnimatedBuilder(
+        animation: _glow,
+        builder: (_, child) {
+          final t = _glow.value; // 0..1
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  accent.withOpacity(0.30),
+                  const Color(0xFF1E293B),
                 ],
+              ),
+              border: Border.all(color: accent.withOpacity(0.75), width: 1.6),
+              boxShadow: [
+                BoxShadow(
+                  color: accent.withOpacity(0.25 + 0.35 * t),
+                  blurRadius: 16 + 10 * t,
+                  spreadRadius: 1,
+                ),
               ],
             ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            child: child,
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: _row(context, big: true),
+        ),
+      );
+    } else {
+      card = Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: accent.withOpacity(0.35), width: 1),
+        ),
+        child: _row(context, big: false),
+      );
+    }
+
+    return FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(position: _slide, child: card),
+    );
+  }
+
+  Widget _row(BuildContext context, {required bool big}) {
+    final m = widget.ranked.member;
+    final s = widget.ranked.stat;
+    final accent = widget.accent;
+    final rank = widget.ranked.rank;
+    final avatar = CircleAvatar(
+      radius: big ? 24 : 22,
+      backgroundColor: const Color(0xFF334155),
+      backgroundImage: m.avatarUrl.isNotEmpty ? NetworkImage(m.avatarUrl) : null,
+      child: m.avatarUrl.isEmpty
+          ? Text(m.name.isNotEmpty ? m.name[0].toUpperCase() : '?',
+              style: const TextStyle(color: Colors.white))
+          : null,
+    );
+
+    return Row(
+      children: [
+        SizedBox(
+          width: big ? 34 : 28,
+          child: _isTop3
+              ? Text(_medals[rank]!,
+                  style: const TextStyle(fontSize: 24),
+                  textAlign: TextAlign.center)
+              : Text(
+                  rank > 0 ? '#$rank' : '—',
+                  style: TextStyle(
+                      color: accent, fontSize: 15, fontWeight: FontWeight.w700),
+                ),
+        ),
+        const SizedBox(width: 6),
+        // Vòng phát sáng quanh avatar cho top 3.
+        if (big)
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: accent, width: 2),
+              boxShadow: [
+                BoxShadow(color: accent.withOpacity(0.5), blurRadius: 8),
+              ],
+            ),
+            child: avatar,
+          )
+        else
+          avatar,
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${s.elo}',
+                m.name,
                 style: TextStyle(
-                  color: s.elo >= 0
-                      ? const Color(0xFF86EFAC)
-                      : const Color(0xFFFCA5A5),
-                  fontSize: 22,
+                  color: big ? accent : Colors.white,
+                  fontSize: big ? 17 : 16,
                   fontWeight: FontWeight.w800,
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
-              const Text(
-                'ELO',
-                style: TextStyle(color: Colors.white38, fontSize: 10),
+              const SizedBox(height: 2),
+              Text(
+                s.games == 0
+                    ? 'chưa có trận'
+                    : '${s.wins}T-${s.losses}B · ${s.games} trận · '
+                        'tỉ lệ ${(s.winRate * 100).toStringAsFixed(0)}%',
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
               ),
+              if (m.lastPlayedVN != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  'Chơi gần nhất: ${DateFormat('dd/MM/yyyy').format(m.lastPlayedVN!)}',
+                  style: const TextStyle(color: Colors.white38, fontSize: 11),
+                ),
+              ],
             ],
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              '${s.elo}',
+              style: TextStyle(
+                color: s.elo >= 0
+                    ? const Color(0xFF86EFAC)
+                    : const Color(0xFFFCA5A5),
+                fontSize: big ? 26 : 22,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const Text('ELO',
+                style: TextStyle(color: Colors.white38, fontSize: 10)),
+          ],
+        ),
+      ],
     );
   }
 }

@@ -1,0 +1,73 @@
+name: Cập nhật ELO & deploy web
+
+on:
+  schedule:
+    # GitHub cron dùng giờ UTC. 07:00/14:00/21:00 giờ VN (UTC+7) = 00:00/07:00/14:00 UTC.
+    - cron: '0 0,7,14 * * *'
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'scripts/**'
+      - '.github/workflows/update.yml'
+
+permissions:
+  contents: write   # để commit checkpoint (state.json) & data
+  pages: write      # để deploy GitHub Pages
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Tính ELO tăng dần từ checkpoint (scripts/state.json).
+      - name: Tính ELO (incremental)
+        run: node scripts/compute.mjs
+
+      # Lưu lại checkpoint + dữ liệu để lần sau chạy tiếp. [skip ci] để không tự kích hoạt lại.
+      - name: Lưu checkpoint & dữ liệu
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/state.json app/web/data/leaderboard.json
+          if git diff --cached --quiet; then
+            echo "Không có thay đổi để commit."
+          else
+            git commit -m "chore: cập nhật ELO [skip ci]"
+            git push
+          fi
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Build web
+        run: |
+          cd app
+          flutter pub get
+          flutter build web --release --base-href "/${GITHUB_REPOSITORY##*/}/"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app/build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

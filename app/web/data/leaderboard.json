@@ -1,0 +1,118 @@
+{
+  "updated_at": 1786419512,
+  "start_epoch": 1780246800,
+  "total_matches": 535,
+  "internal_matches": 262,
+  "members": [
+    {
+      "user_uuid": "d6c14b8e-d651-49c6-8287-5a069fe7edbc",
+      "name": "Tnos",
+      "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11102028/11102028_1e364990-b3eb-47fc-bfe8-2fd11465a8a2.png",
+      "elo": 157,
+      "games": 111,
+      "wins": 66,
+      "losses": 45,
+      "rank": 1,
+      "tier": "Top 1"
+    },
+    {
+      "user_uuid": "ac837498-0e68-4299-a5ce-b8f34a5385a9",
+      "name": "minh_0909",
+      "avatar_url": "https://cdn-data.gtvplus.vn/avatar/avatar_016.png",
+      "elo": 155,
+      "games": 91,
+      "wins": 35,
+      "losses": 56,
+      "rank": 2,
+      "tier": "Top 1"
+    },
+    {
+      "user_uuid": "df398dcf-f4e2-44f5-af37-3dfefa8d6c5a",
+      "name": "titi_cuti",
+      "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100001/11100001_27c227dd-6d75-4181-90ad-6a95cfe8b82f.png",
+      "elo": 142,
+      "games": 156,
+      "wins": 94,
+      "losses": 62,
+      "rank": 3,
+      "tier": "Top 1"
+    },
+    {
+      "user_uuid": "a6f69c6c-38cc-4d6a-a2d6-c15bb2792ecc",
+      "name": "thuhoai55_7667",
+      "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100066/11100066_86.png",
+      "elo": 126,
+      "games": 124,
+      "wins": 60,
+      "losses": 64,
+      "rank": 4,
+      "tier": "Top 2"
+    },
+    {
+      "user_uuid": "65711749-451a-4df6-a140-11d0a2b6e45f",
+      "name": "Spainno3",
+      "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100001/11100001_27c227dd-6d75-4181-90ad-6a95cfe8b82f.png",
+      "elo": 123,
+      "games": 76,
+      "wins": 41,
+      "losses": 35,
+      "rank": 5,
+      "tier": "Top 2"
+    },
+    {
+      "user_uuid": "1a9ff917-6fe1-484f-8980-d1d4d4aa4778",
+      "name": "14_northside",
+      "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100001/11100001_27c227dd-6d75-4181-90ad-6a95cfe8b82f.png",
+      "elo": 70,
+      "games": 111,
+      "wins": 53,
+      "losses": 58,
+      "rank": 6,
+      "tier": "Top 3"
+    },
+    {
+      "user_uuid": "0b0bb6a4-a2d8-4218-bca0-cd67a242305e",
+      "name": "chimsaudm9_8108",
+      "avatar_url": "https://cdn-data.gtvplus.vn/avatar/avatar_006.png",
+      "elo": 20,
+      "games": 159,
+      "wins": 76,
+      "losses": 83,
+      "rank": 7,
+      "tier": "Top 3"
+    },
+    {
+      "user_uuid": "3db54282-d32b-41f9-950c-cac1cccd8271",
+      "name": "TrumNho",
+      "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100001/11100001_27c227dd-6d75-4181-90ad-6a95cfe8b82f.png",
+      "elo": -15,
+      "games": 127,
+      "wins": 52,
+      "losses": 75,
+      "rank": 8,
+      "tier": "Top 4"
+    },
+    {
+      "user_uuid": "c5dd6537-6818-4309-869d-9bea79193999",
+      "name": "phucyknb",
+      "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/0/0_113.png",
+      "elo": -16,
+      "games": 28,
+      "wins": 7,
+      "losses": 21,
+      "rank": 9,
+      "tier": "Top 4"
+    },
+    {
+      "user_uuid": "6747bca9-681b-459c-aa5a-309ef5fee99a",
+      "name": "DarkTitan",
+      "avatar_url": "https://cdn-data.gtvplus.vn/avatar/avatar_001.png",
+      "elo": -141,
+      "games": 165,
+      "wins": 118,
+      "losses": 47,
+      "rank": 10,
+      "tier": "Top 4"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "AoE Ranking",
+  "short_name": "AoE Ranking",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#0F172A",
+  "description": "Bảng xếp hạng ELO nội bộ team AoE",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false
+}

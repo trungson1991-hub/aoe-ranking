@@ -67,15 +67,33 @@ function isInternal(m) {
   return [...red, ...blue].every((p) => teamSet.has(p.user_uuid));
 }
 
+// Các thể loại tính ELO riêng (chỉ trận cân người). Trận lệch (vd 3v4) chỉ vào ELO tổng.
+const MODES = ["1v1", "2v2", "3v3", "4v4"];
+
+function modeKey(m) {
+  const r = m.red_team_members.length;
+  const b = m.blue_team_members.length;
+  if (r === b && r >= 1 && r <= 4) return `${r}v${b}`;
+  return null;
+}
+
+function emptyStat() {
+  return { elo: 0, games: 0, wins: 0, losses: 0 };
+}
+
 function emptyTotals() {
   const t = {};
-  for (const u of TEAM)
-    t[u] = { elo: 0, games: 0, wins: 0, losses: 0, name: "", avatar_url: "" };
+  for (const u of TEAM) {
+    const modes = {};
+    for (const k of MODES) modes[k] = emptyStat();
+    t[u] = { name: "", avatar_url: "", total: emptyStat(), modes };
+  }
   return t;
 }
 
 function accumulate(totals, internalMatches) {
   for (const m of internalMatches) {
+    const mk = modeKey(m);
     for (const [members, idx] of [
       [m.red_team_members, 0],
       [m.blue_team_members, 1],
@@ -83,10 +101,16 @@ function accumulate(totals, internalMatches) {
       for (const x of members) {
         const t = totals[x.user_uuid];
         if (!t) continue;
-        t.elo += x.elo_change ?? 0;
-        t.games += 1;
-        if (m.victory_team_idx === idx) t.wins += 1;
-        else t.losses += 1;
+        const delta = x.elo_change ?? 0;
+        const win = m.victory_team_idx === idx;
+        const apply = (s) => {
+          s.elo += delta;
+          s.games += 1;
+          if (win) s.wins += 1;
+          else s.losses += 1;
+        };
+        apply(t.total); // ELO tổng: mọi trận nội bộ
+        if (mk) apply(t.modes[mk]); // ELO theo thể loại: chỉ trận cân người
         if (x.name) t.name = x.name;
         if (x.avatar_url) t.avatar_url = x.avatar_url;
       }
@@ -94,29 +118,17 @@ function accumulate(totals, internalMatches) {
   }
 }
 
+// Xuất dữ liệu thô theo từng người (tổng + từng mode). Việc xếp hạng & chia tier
+// do web tự tính theo chế độ đang chọn (không cần tải lại khi đổi mode).
 function buildLeaderboard(totals, meta) {
-  const ranked = [...TEAM].sort((a, b) => {
-    const d = totals[b].elo - totals[a].elo;
-    return d !== 0 ? d : totals[b].wins - totals[a].wins;
-  });
-  const build = (u, rank, tier) => ({
+  const members = TEAM.map((u) => ({
     user_uuid: u,
     name: totals[u].name || u.slice(0, 8),
     avatar_url: totals[u].avatar_url || "",
-    elo: totals[u].elo,
-    games: totals[u].games,
-    wins: totals[u].wins,
-    losses: totals[u].losses,
-    rank,
-    tier,
-  });
-  const members = [];
-  let i = 0;
-  for (const t of TIERS)
-    for (let k = 0; k < t.size && i < ranked.length; k++, i++)
-      members.push(build(ranked[i], i + 1, t.label));
-  for (; i < ranked.length; i++) members.push(build(ranked[i], i + 1, ""));
-  return { ...meta, members };
+    total: totals[u].total,
+    modes: totals[u].modes,
+  }));
+  return { ...meta, tiers: TIERS, members };
 }
 
 // ---- Main ----

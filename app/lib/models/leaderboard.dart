@@ -1,44 +1,86 @@
-// Model khớp với document Firestore `leaderboard/current` do Cloud Function ghi.
+// Model khớp document JSON do scripts/compute.mjs sinh ra.
+// Mỗi thành viên có thống kê Tổng + theo từng thể loại (1v1/2v2/3v3/4v4).
+// Việc xếp hạng & chia tier tính ở client theo chế độ đang chọn.
 
-class MemberResult {
-  final String userUuid;
-  final String name;
-  final String avatarUrl;
+const List<String> kModeKeys = ['1v1', '2v2', '3v3', '4v4'];
+const String kTotalKey = 'total';
+
+class ModeStat {
   final int elo;
   final int games;
   final int wins;
   final int losses;
-  final int rank; // 1-based
-  final String tier;
 
-  const MemberResult({
-    required this.userUuid,
-    required this.name,
-    required this.avatarUrl,
-    required this.elo,
-    required this.games,
-    required this.wins,
-    required this.losses,
-    required this.rank,
-    required this.tier,
-  });
+  const ModeStat({this.elo = 0, this.games = 0, this.wins = 0, this.losses = 0});
 
   double get winRate => games == 0 ? 0 : wins / games;
 
-  factory MemberResult.fromMap(Map<String, dynamic> m) {
+  factory ModeStat.fromMap(Map<String, dynamic>? m) {
     int asInt(dynamic v) => (v is num) ? v.toInt() : 0;
-    return MemberResult(
-      userUuid: (m['user_uuid'] ?? '') as String,
-      name: (m['name'] ?? '') as String,
-      avatarUrl: (m['avatar_url'] ?? '') as String,
+    if (m == null) return const ModeStat();
+    return ModeStat(
       elo: asInt(m['elo']),
       games: asInt(m['games']),
       wins: asInt(m['wins']),
       losses: asInt(m['losses']),
-      rank: asInt(m['rank']),
-      tier: (m['tier'] ?? '') as String,
     );
   }
+}
+
+class Member {
+  final String userUuid;
+  final String name;
+  final String avatarUrl;
+  final ModeStat total;
+  final Map<String, ModeStat> modes;
+
+  const Member({
+    required this.userUuid,
+    required this.name,
+    required this.avatarUrl,
+    required this.total,
+    required this.modes,
+  });
+
+  // view = 'total' | '1v1' | '2v2' | '3v3' | '4v4'
+  ModeStat statFor(String view) =>
+      view == kTotalKey ? total : (modes[view] ?? const ModeStat());
+
+  factory Member.fromMap(Map<String, dynamic> m) {
+    Map<String, dynamic>? sub(dynamic v) =>
+        v == null ? null : Map<String, dynamic>.from(v as Map);
+    final rawModes = (m['modes'] as Map?) ?? {};
+    final modes = <String, ModeStat>{};
+    for (final k in kModeKeys) {
+      modes[k] = ModeStat.fromMap(sub(rawModes[k]));
+    }
+    return Member(
+      userUuid: (m['user_uuid'] ?? '') as String,
+      name: (m['name'] ?? '') as String,
+      avatarUrl: (m['avatar_url'] ?? '') as String,
+      total: ModeStat.fromMap(sub(m['total'])),
+      modes: modes,
+    );
+  }
+}
+
+class TierDef {
+  final String label;
+  final int size;
+  const TierDef(this.label, this.size);
+}
+
+class RankedMember {
+  final Member member;
+  final int rank; // 1-based
+  final String tier;
+  final ModeStat stat;
+  const RankedMember({
+    required this.member,
+    required this.rank,
+    required this.tier,
+    required this.stat,
+  });
 }
 
 class Leaderboard {
@@ -46,7 +88,8 @@ class Leaderboard {
   final int startEpoch;
   final int totalMatches;
   final int internalMatches;
-  final List<MemberResult> members;
+  final List<Member> members;
+  final List<TierDef> tiers;
 
   const Leaderboard({
     required this.updatedAt,
@@ -54,17 +97,47 @@ class Leaderboard {
     required this.totalMatches,
     required this.internalMatches,
     required this.members,
+    required this.tiers,
   });
 
-  // Ngày bắt đầu tính ELO, hiển thị theo giờ VN (UTC+7) để không lệch theo máy người xem.
+  // Ngày bắt đầu tính ELO, hiển thị theo giờ VN (UTC+7).
   DateTime get startDateVN =>
       DateTime.fromMillisecondsSinceEpoch(startEpoch * 1000, isUtc: true)
           .add(const Duration(hours: 7));
 
+  // Xếp hạng + chia tier theo chế độ đang chọn.
+  List<RankedMember> ranked(String view) {
+    final list = [...members];
+    list.sort((a, b) {
+      final d = b.statFor(view).elo - a.statFor(view).elo;
+      if (d != 0) return d;
+      return b.statFor(view).wins - a.statFor(view).wins;
+    });
+    final out = <RankedMember>[];
+    var i = 0;
+    for (final t in tiers) {
+      for (var k = 0; k < t.size && i < list.length; k++, i++) {
+        out.add(RankedMember(
+            member: list[i], rank: i + 1, tier: t.label, stat: list[i].statFor(view)));
+      }
+    }
+    for (; i < list.length; i++) {
+      out.add(RankedMember(
+          member: list[i], rank: i + 1, tier: '', stat: list[i].statFor(view)));
+    }
+    return out;
+  }
+
   factory Leaderboard.fromMap(Map<String, dynamic> m) {
     int asInt(dynamic v) => (v is num) ? v.toInt() : 0;
-    final list = (m['members'] as List<dynamic>? ?? [])
-        .map((e) => MemberResult.fromMap(Map<String, dynamic>.from(e as Map)))
+    final members = (m['members'] as List<dynamic>? ?? [])
+        .map((e) => Member.fromMap(Map<String, dynamic>.from(e as Map)))
+        .toList();
+    final tiers = (m['tiers'] as List<dynamic>? ?? [])
+        .map((e) {
+          final t = Map<String, dynamic>.from(e as Map);
+          return TierDef((t['label'] ?? '') as String, asInt(t['size']));
+        })
         .toList();
     return Leaderboard(
       updatedAt:
@@ -72,17 +145,15 @@ class Leaderboard {
       startEpoch: asInt(m['start_epoch']),
       totalMatches: asInt(m['total_matches']),
       internalMatches: asInt(m['internal_matches']),
-      members: list,
+      members: members,
+      tiers: tiers.isNotEmpty
+          ? tiers
+          : const [
+              TierDef('Top 1', 3),
+              TierDef('Top 2', 2),
+              TierDef('Top 3', 2),
+              TierDef('Top 4', 3),
+            ],
     );
-  }
-
-  // Gom thành viên theo tier, giữ nguyên thứ tự hạng.
-  Map<String, List<MemberResult>> get byTier {
-    final map = <String, List<MemberResult>>{};
-    for (final mem in members) {
-      final key = mem.tier.isEmpty ? 'Khác' : mem.tier;
-      map.putIfAbsent(key, () => []).add(mem);
-    }
-    return map;
   }
 }

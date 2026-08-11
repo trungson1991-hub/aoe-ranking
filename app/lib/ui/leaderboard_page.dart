@@ -4,6 +4,15 @@ import 'package:intl/intl.dart';
 import '../models/leaderboard.dart';
 import '../services/leaderboard_service.dart';
 
+// Các chế độ xem: nhãn hiển thị + key trong dữ liệu.
+const List<({String key, String label})> _views = [
+  (key: kTotalKey, label: 'Tổng'),
+  (key: '1v1', label: '1v1'),
+  (key: '2v2', label: '2v2'),
+  (key: '3v3', label: '3v3'),
+  (key: '4v4', label: '4v4'),
+];
+
 class LeaderboardPage extends StatefulWidget {
   const LeaderboardPage({super.key, this.service});
 
@@ -16,6 +25,7 @@ class LeaderboardPage extends StatefulWidget {
 class _LeaderboardPageState extends State<LeaderboardPage> {
   late LeaderboardService _svc;
   late Future<Leaderboard?> _future;
+  String _view = kTotalKey;
 
   @override
   void initState() {
@@ -24,11 +34,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
     _future = _svc.fetch();
   }
 
-  void _reload() {
-    setState(() {
-      _future = _svc.fetch();
-    });
-  }
+  void _reload() => setState(() => _future = _svc.fetch());
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +70,11 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                     'Chưa có dữ liệu.\nChạy "node scripts/compute.mjs" hoặc chờ cập nhật theo lịch.',
               );
             }
-            return _Content(board: board);
+            return _Content(
+              board: board,
+              view: _view,
+              onViewChanged: (v) => setState(() => _view = v),
+            );
           },
         ),
       ),
@@ -73,13 +83,25 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
 }
 
 class _Content extends StatelessWidget {
-  const _Content({required this.board});
+  const _Content({
+    required this.board,
+    required this.view,
+    required this.onViewChanged,
+  });
 
   final Leaderboard board;
+  final String view;
+  final ValueChanged<String> onViewChanged;
 
   @override
   Widget build(BuildContext context) {
-    final byTier = board.byTier;
+    final ranked = board.ranked(view);
+    // Gom theo tier, giữ thứ tự hạng.
+    final byTier = <String, List<RankedMember>>{};
+    for (final r in ranked) {
+      byTier.putIfAbsent(r.tier.isEmpty ? 'Khác' : r.tier, () => []).add(r);
+    }
+
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720),
@@ -87,6 +109,8 @@ class _Content extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           children: [
             _Header(board: board),
+            const SizedBox(height: 16),
+            _ViewSelector(view: view, onChanged: onViewChanged),
             const SizedBox(height: 20),
             for (final entry in byTier.entries) ...[
               _TierSection(tier: entry.key, members: entry.value),
@@ -95,8 +119,9 @@ class _Content extends StatelessWidget {
             const SizedBox(height: 8),
             Center(
               child: Text(
-                '${board.internalMatches} trận nội bộ được tính · '
-                'tổng ${board.totalMatches} trận từ 01/06/2026',
+                view == kTotalKey
+                    ? '${board.internalMatches} trận nội bộ được tính'
+                    : 'ELO riêng thể loại $view',
                 style: const TextStyle(color: Colors.white38, fontSize: 12),
                 textAlign: TextAlign.center,
               ),
@@ -131,7 +156,8 @@ class _Header extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           'Tính ELO từ ${dateFmt.format(board.startDateVN)}',
-          style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 13, fontWeight: FontWeight.w600),
+          style: const TextStyle(
+              color: Color(0xFFFBBF24), fontSize: 13, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 2),
         Text(
@@ -143,22 +169,81 @@ class _Header extends StatelessWidget {
   }
 }
 
+class _ViewSelector extends StatelessWidget {
+  const _ViewSelector({required this.view, required this.onChanged});
+
+  final String view;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final v in _views)
+          _Chip(
+            label: v.label,
+            selected: v.key == view,
+            onTap: () => onChanged(v.key),
+          ),
+      ],
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({required this.label, required this.selected, required this.onTap});
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFFBBF24) : const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? const Color(0xFFFBBF24) : Colors.white24,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.black : Colors.white70,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _TierSection extends StatelessWidget {
   const _TierSection({required this.tier, required this.members});
 
   final String tier;
-  final List<MemberResult> members;
+  final List<RankedMember> members;
 
   Color get _accent {
     switch (tier) {
       case 'Top 1':
-        return const Color(0xFFFBBF24); // vàng
+        return const Color(0xFFFBBF24);
       case 'Top 2':
-        return const Color(0xFF60A5FA); // xanh dương
+        return const Color(0xFF60A5FA);
       case 'Top 3':
-        return const Color(0xFF34D399); // xanh lá
+        return const Color(0xFF34D399);
       case 'Top 4':
-        return const Color(0xFFF87171); // đỏ
+        return const Color(0xFFF87171);
       default:
         return Colors.white38;
     }
@@ -184,20 +269,22 @@ class _TierSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
-        for (final m in members) _MemberCard(member: m, accent: _accent),
+        for (final m in members) _MemberCard(ranked: m, accent: _accent),
       ],
     );
   }
 }
 
 class _MemberCard extends StatelessWidget {
-  const _MemberCard({required this.member, required this.accent});
+  const _MemberCard({required this.ranked, required this.accent});
 
-  final MemberResult member;
+  final RankedMember ranked;
   final Color accent;
 
   @override
   Widget build(BuildContext context) {
+    final m = ranked.member;
+    final s = ranked.stat;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -211,7 +298,7 @@ class _MemberCard extends StatelessWidget {
           SizedBox(
             width: 28,
             child: Text(
-              '#${member.rank}',
+              '#${ranked.rank}',
               style: TextStyle(
                 color: accent,
                 fontSize: 15,
@@ -224,10 +311,10 @@ class _MemberCard extends StatelessWidget {
             radius: 22,
             backgroundColor: const Color(0xFF334155),
             backgroundImage:
-                member.avatarUrl.isNotEmpty ? NetworkImage(member.avatarUrl) : null,
-            child: member.avatarUrl.isEmpty
+                m.avatarUrl.isNotEmpty ? NetworkImage(m.avatarUrl) : null,
+            child: m.avatarUrl.isEmpty
                 ? Text(
-                    member.name.isNotEmpty ? member.name[0].toUpperCase() : '?',
+                    m.name.isNotEmpty ? m.name[0].toUpperCase() : '?',
                     style: const TextStyle(color: Colors.white),
                   )
                 : null,
@@ -238,7 +325,7 @@ class _MemberCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  member.name,
+                  m.name,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -248,8 +335,10 @@ class _MemberCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${member.wins}T-${member.losses}B · ${member.games} trận · '
-                  'tỉ lệ ${(member.winRate * 100).toStringAsFixed(0)}%',
+                  s.games == 0
+                      ? 'chưa có trận'
+                      : '${s.wins}T-${s.losses}B · ${s.games} trận · '
+                          'tỉ lệ ${(s.winRate * 100).toStringAsFixed(0)}%',
                   style: const TextStyle(color: Colors.white54, fontSize: 12),
                 ),
               ],
@@ -260,9 +349,9 @@ class _MemberCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '${member.elo}',
+                '${s.elo}',
                 style: TextStyle(
-                  color: member.elo >= 0
+                  color: s.elo >= 0
                       ? const Color(0xFF86EFAC)
                       : const Color(0xFFFCA5A5),
                   fontSize: 22,

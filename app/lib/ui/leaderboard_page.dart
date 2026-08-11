@@ -336,28 +336,13 @@ class _MemberCard extends StatefulWidget {
 
 class _MemberCardState extends State<_MemberCard>
     with TickerProviderStateMixin {
-  late final AnimationController _entrance;
   late final AnimationController _glow;
-  late final Animation<double> _fade;
-  late final Animation<Offset> _slide;
 
   bool get _isTop3 => widget.ranked.rank >= 1 && widget.ranked.rank <= 3;
 
   @override
   void initState() {
     super.initState();
-    _entrance = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 450),
-    );
-    // Xuất hiện so le theo thứ hạng cho hiệu ứng "đổ" mượt.
-    final delayMs = 40 * widget.ranked.rank.clamp(0, 15).toInt();
-    Future.delayed(Duration(milliseconds: delayMs), () {
-      if (mounted) _entrance.forward();
-    });
-    _fade = CurvedAnimation(parent: _entrance, curve: Curves.easeOut);
-    _slide = Tween<Offset>(begin: const Offset(0, 0.12), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _entrance, curve: Curves.easeOutCubic));
     _glow = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
@@ -367,7 +352,6 @@ class _MemberCardState extends State<_MemberCard>
 
   @override
   void dispose() {
-    _entrance.dispose();
     _glow.dispose();
     super.dispose();
   }
@@ -423,10 +407,7 @@ class _MemberCardState extends State<_MemberCard>
       );
     }
 
-    return FadeTransition(
-      opacity: _fade,
-      child: SlideTransition(position: _slide, child: card),
-    );
+    return card;
   }
 
   Widget _row(BuildContext context, {required bool big}) {

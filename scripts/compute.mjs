@@ -57,9 +57,14 @@ async function fetchUserMatches(uuid, fromEpoch) {
 
 const teamSet = new Set(TEAM);
 
+// Trận nội bộ hợp lệ:
+//   - CẢ HAI đội đều có người (loại các bản ghi 1 đội rỗng như 1v0/2v0 — không có đối thủ),
+//   - MỌI người chơi của cả 2 đội đều thuộc team (chỉ cần 1 người ngoài team là loại).
 function isInternal(m) {
-  const parts = [...m.red_team_members, ...m.blue_team_members];
-  return parts.length > 0 && parts.every((p) => teamSet.has(p.user_uuid));
+  const red = m.red_team_members;
+  const blue = m.blue_team_members;
+  if (red.length === 0 || blue.length === 0) return false;
+  return [...red, ...blue].every((p) => teamSet.has(p.user_uuid));
 }
 
 function emptyTotals() {

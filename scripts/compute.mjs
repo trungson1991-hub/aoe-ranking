@@ -178,7 +178,7 @@ function emptyInfo() {
   for (const u of TEAM) {
     const modes = {};
     for (const k of MODES) modes[k] = emptyBucket();
-    info[u] = { name: "", avatar_url: "", total: emptyBucket(), modes };
+    info[u] = { name: "", avatar_url: "", last_played: 0, total: emptyBucket(), modes };
   }
   return info;
 }
@@ -233,6 +233,7 @@ function buildLeaderboard(info, meta) {
       user_uuid: u,
       name: info[u].name || u.slice(0, 8),
       avatar_url: info[u].avatar_url || "",
+      last_played: info[u].last_played,
       total: round(info[u].total),
       modes,
     };
@@ -259,6 +260,14 @@ async function main() {
     .sort((a, b) => a.created_time - b.created_time); // xử lý theo thứ tự thời gian
 
   const info = emptyInfo();
+
+  // Ngày chơi gần nhất (mọi trận đã fetch, kể cả không tính ELO).
+  for (const m of union.values()) {
+    for (const x of [...m.red_team_members, ...m.blue_team_members]) {
+      const t = info[x.user_uuid];
+      if (t && m.created_time > t.last_played) t.last_played = m.created_time;
+    }
+  }
 
   for (const m of eligible) {
     // Cập nhật tên/avatar.

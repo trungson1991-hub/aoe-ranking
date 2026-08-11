@@ -31,6 +31,7 @@ class Member {
   final String userUuid;
   final String name;
   final String avatarUrl;
+  final int lastPlayed; // epoch giây, 0 nếu không có
   final ModeStat total;
   final Map<String, ModeStat> modes;
 
@@ -38,6 +39,7 @@ class Member {
     required this.userUuid,
     required this.name,
     required this.avatarUrl,
+    required this.lastPlayed,
     required this.total,
     required this.modes,
   });
@@ -46,7 +48,14 @@ class Member {
   ModeStat statFor(String view) =>
       view == kTotalKey ? total : (modes[view] ?? const ModeStat());
 
+  // Ngày chơi gần nhất theo giờ VN (UTC+7); null nếu chưa có.
+  DateTime? get lastPlayedVN => lastPlayed <= 0
+      ? null
+      : DateTime.fromMillisecondsSinceEpoch(lastPlayed * 1000, isUtc: true)
+          .add(const Duration(hours: 7));
+
   factory Member.fromMap(Map<String, dynamic> m) {
+    int asInt(dynamic v) => (v is num) ? v.toInt() : 0;
     Map<String, dynamic>? sub(dynamic v) =>
         v == null ? null : Map<String, dynamic>.from(v as Map);
     final rawModes = (m['modes'] as Map?) ?? {};
@@ -58,6 +67,7 @@ class Member {
       userUuid: (m['user_uuid'] ?? '') as String,
       name: (m['name'] ?? '') as String,
       avatarUrl: (m['avatar_url'] ?? '') as String,
+      lastPlayed: asInt(m['last_played']),
       total: ModeStat.fromMap(sub(m['total'])),
       modes: modes,
     );

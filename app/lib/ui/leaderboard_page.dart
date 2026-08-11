@@ -337,6 +337,13 @@ class _MemberCard extends StatelessWidget {
                           'tỉ lệ ${(s.winRate * 100).toStringAsFixed(0)}%',
                   style: const TextStyle(color: Colors.white54, fontSize: 12),
                 ),
+                if (m.lastPlayedVN != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'Chơi gần nhất: ${DateFormat('dd/MM/yyyy').format(m.lastPlayedVN!)}',
+                    style: const TextStyle(color: Colors.white38, fontSize: 11),
+                  ),
+                ],
               ],
             ),
           ),

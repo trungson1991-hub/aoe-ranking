@@ -466,43 +466,6 @@
           "losses": 3
         }
       }
-    },
-    {
-      "user_uuid": "bbb371ae-d57c-4f9c-ade8-94bae76cab22",
-      "name": "bbb371ae",
-      "avatar_url": "",
-      "total": {
-        "elo": 0,
-        "games": 0,
-        "wins": 0,
-        "losses": 0
-      },
-      "modes": {
-        "1v1": {
-          "elo": 0,
-          "games": 0,
-          "wins": 0,
-          "losses": 0
-        },
-        "2v2": {
-          "elo": 0,
-          "games": 0,
-          "wins": 0,
-          "losses": 0
-        },
-        "3v3": {
-          "elo": 0,
-          "games": 0,
-          "wins": 0,
-          "losses": 0
-        },
-        "4v4": {
-          "elo": 0,
-          "games": 0,
-          "wins": 0,
-          "losses": 0
-        }
-      }
     }
   ]
 }

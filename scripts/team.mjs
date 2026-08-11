@@ -16,7 +16,6 @@ export const TEAM = [
   "c5dd6537-6818-4309-869d-9bea79193999", // phucyknb
   "7fdee180-f5ef-43e7-be86-3c0e30535010", // EmBe.HY
   "ffe110f9-6f29-429f-9127-4f775cec9546", // ntduc12_3779
-  "bbb371ae-d57c-4f9c-ade8-94bae76cab22", // Tada
 ];
 
 // Cửa sổ trượt: chỉ tính ELO các trận trong N THÁNG GẦN NHẤT tính tới thời điểm chạy.

@@ -116,6 +116,7 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fmt = DateFormat('dd/MM/yyyy HH:mm');
+    final dateFmt = DateFormat('dd/MM/yyyy');
     return Column(
       children: [
         const Text(
@@ -128,6 +129,11 @@ class _Header extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
+        Text(
+          'Tính ELO từ ${dateFmt.format(board.startDateVN)}',
+          style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 2),
         Text(
           'Cập nhật: ${fmt.format(board.updatedAt.toLocal())}',
           style: const TextStyle(color: Colors.white54, fontSize: 13),

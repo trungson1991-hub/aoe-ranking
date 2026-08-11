@@ -43,16 +43,23 @@ class MemberResult {
 
 class Leaderboard {
   final DateTime updatedAt;
+  final int startEpoch;
   final int totalMatches;
   final int internalMatches;
   final List<MemberResult> members;
 
   const Leaderboard({
     required this.updatedAt,
+    required this.startEpoch,
     required this.totalMatches,
     required this.internalMatches,
     required this.members,
   });
+
+  // Ngày bắt đầu tính ELO, hiển thị theo giờ VN (UTC+7) để không lệch theo máy người xem.
+  DateTime get startDateVN =>
+      DateTime.fromMillisecondsSinceEpoch(startEpoch * 1000, isUtc: true)
+          .add(const Duration(hours: 7));
 
   factory Leaderboard.fromMap(Map<String, dynamic> m) {
     int asInt(dynamic v) => (v is num) ? v.toInt() : 0;
@@ -62,6 +69,7 @@ class Leaderboard {
     return Leaderboard(
       updatedAt:
           DateTime.fromMillisecondsSinceEpoch(asInt(m['updated_at']) * 1000),
+      startEpoch: asInt(m['start_epoch']),
       totalMatches: asInt(m['total_matches']),
       internalMatches: asInt(m['internal_matches']),
       members: list,

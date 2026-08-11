@@ -11,6 +11,9 @@ Web tính điểm ELO riêng cho các thành viên team dựa trên API lịch s
 - Chỉ tính trận **nội bộ**: TẤT CẢ người chơi của cả 2 đội đều là thành viên team.
 - Loại **trận "ma"**: (1) chỉ có 1 người chơi hoặc một đội rỗng (Xv0 — không có đối thủ), hoặc
   (2) tổng `kills + losses` (giết + mất quân) của tất cả người chơi `< 10` (không có giao tranh thật).
+- **Trùng màu (`empires_color`)**: nếu nhiều người cùng 1 màu/slot, chỉ **người đầu tiên** (theo thứ tự
+  danh sách) được tính ELO; những người sau là **viewer**, không tác động (không tính trận/thắng/thua).
+  Số người thực mỗi đội (sau khi bỏ viewer) cũng dùng để xác định thể loại 1v1/2v2/3v3/4v4.
 - **Performance ELO** (không chỉ thắng/thua): mỗi trận, từng chỉ số (giết/mất quân, phá công trình,
   đào vàng, dân số, công nghệ, tốc độ lên đời, mở bản đồ, bơm đồ...) được chuẩn hoá tương đối giữa
   những người cùng trận thành `perf ∈ [0,1]`. Điểm nhận `S = 0.5·(thắng?1:0) + 0.5·perf`,

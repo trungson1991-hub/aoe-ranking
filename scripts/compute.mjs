@@ -110,9 +110,32 @@ function isGhost(m) {
   return kd < 10;
 }
 
+// Người chơi THỰC của trận: nếu nhiều người cùng empires_color (cùng 1 slot), chỉ giữ
+// người XUẤT HIỆN ĐẦU TIÊN (theo thứ tự red rồi blue); những người sau là "viewer",
+// bị loại khỏi mọi tính toán ELO. Màu là duy nhất toàn trận trong AoE.
+function realPlayers(m) {
+  const order = [
+    ...m.red_team_members.map((x) => ({ uuid: x.user_uuid, idx: 0 })),
+    ...m.blue_team_members.map((x) => ({ uuid: x.user_uuid, idx: 1 })),
+  ];
+  const seen = new Set();
+  const real = [];
+  for (const p of order) {
+    const color = m.statistics?.[p.uuid]?.empires_color;
+    // Không có màu -> không gộp được, coi mỗi người là 1 slot riêng.
+    const key = color === undefined || color === null ? `u:${p.uuid}` : `c:${color}`;
+    if (seen.has(key)) continue; // viewer -> bỏ
+    seen.add(key);
+    real.push(p);
+  }
+  return real;
+}
+
+// Mode tính theo SỐ NGƯỜI THỰC mỗi đội (sau khi loại viewer trùng màu).
 function modeKey(m) {
-  const r = m.red_team_members.length;
-  const b = m.blue_team_members.length;
+  const real = realPlayers(m);
+  const r = real.filter((p) => p.idx === 0).length;
+  const b = real.filter((p) => p.idx === 1).length;
   if (r === b && r >= 1 && r <= 4) return `${r}v${b}`;
   return null;
 }
@@ -121,9 +144,7 @@ function modeKey(m) {
 
 // Tính điểm phong độ (0..1) cho mỗi người trong 1 trận, chuẩn hoá min-max TƯƠNG ĐỐI trong trận.
 function perfScores(m) {
-  const players = [];
-  for (const x of m.red_team_members) players.push({ uuid: x.user_uuid, idx: 0 });
-  for (const x of m.blue_team_members) players.push({ uuid: x.user_uuid, idx: 1 });
+  const players = realPlayers(m); // chỉ người chơi thực, loại viewer trùng màu
   const stt = m.statistics || {};
   const stats = players.map((p) => stt[p.uuid] || {});
 

@@ -470,6 +470,7 @@ class _MethodSheet extends StatelessWidget {
             bullet('Chỉ lấy trận trong 6 tháng gần nhất.'),
             bullet('Chỉ trận nội bộ: tất cả người chơi của cả 2 đội đều thuộc team.'),
             bullet('Loại "trận ma": ≤1 người, một đội rỗng, hoặc tổng (giết + mất quân) < 10.'),
+            bullet('Nếu nhiều người trùng màu (chung 1 slot): chỉ người đầu tiên được tính ELO, người sau là viewer (không ảnh hưởng).'),
             const SizedBox(height: 16),
             const Text('2. Điểm phong độ mỗi trận (0–1)', style: h),
             const SizedBox(height: 8),

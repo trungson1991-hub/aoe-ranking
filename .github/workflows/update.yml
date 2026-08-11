@@ -36,6 +36,7 @@ jobs:
         run: node scripts/compute.mjs
 
       # Lưu dữ liệu mới. [skip ci] để không tự kích hoạt lại workflow.
+      # Rebase + retry để tránh lỗi "fetch first" khi có run khác đẩy commit chen ngang.
       - name: Lưu dữ liệu
         run: |
           git config user.name "github-actions[bot]"
@@ -43,10 +44,19 @@ jobs:
           git add app/web/data/leaderboard.json
           if git diff --cached --quiet; then
             echo "Không có thay đổi để commit."
-          else
-            git commit -m "chore: cập nhật ELO [skip ci]"
-            git push
+            exit 0
           fi
+          git commit -m "chore: cập nhật ELO [skip ci]"
+          for i in 1 2 3 4 5; do
+            if git push; then
+              echo "Đã push."
+              exit 0
+            fi
+            echo "Push bị từ chối, rebase và thử lại ($i)..."
+            git pull --rebase -X ours origin "${GITHUB_REF_NAME}"
+          done
+          echo "Không push được sau 5 lần thử."
+          exit 1
 
       - uses: subosito/flutter-action@v2
         with:

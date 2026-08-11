@@ -14,6 +14,8 @@ class AoeRankingApp extends StatelessWidget {
     return MaterialApp(
       title: 'AoE Ranking',
       debugShowCheckedModeBanner: false,
+      // Ẩn thanh cuộn (scrollbar) trên web/desktop.
+      scrollBehavior: const MaterialScrollBehavior().copyWith(scrollbars: false),
       theme: ThemeData(
         useMaterial3: true,
         colorSchemeSeed: const Color(0xFFFBBF24),

@@ -80,12 +80,26 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
               },
             ),
             Positioned(
-              top: 4,
-              right: 4,
-              child: IconButton(
-                icon: const Icon(Icons.info_outline, color: Colors.white70),
-                tooltip: 'Cách tính ELO',
+              top: 6,
+              right: 6,
+              child: TextButton.icon(
                 onPressed: () => _showMethod(context),
+                icon: const Icon(Icons.info_outline,
+                    size: 18, color: Color(0xFFFBBF24)),
+                label: const Text(
+                  'Cách tính ELO',
+                  style: TextStyle(
+                      color: Color(0xFFFBBF24),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700),
+                ),
+                style: TextButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E293B),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                ),
               ),
             ),
           ],
@@ -476,6 +490,7 @@ class _MethodSheet extends StatelessWidget {
             bullet('Kỳ vọng E tính theo chênh lệch ELO trung bình 2 đội.'),
             bullet('ELO thay đổi: Δ = 28 × (S − E). Bắt đầu từ 0, có thể âm.'),
             bullet('Thắng vẫn quan trọng nhất, nhưng chơi hay/tệ ảnh hưởng điểm nhận.'),
+            bullet('Theo số trận: chơi ít → ELO co về 0 (tránh mẫu nhỏ vọt top); chơi nhiều → cộng thưởng nhẹ.'),
             const SizedBox(height: 16),
             const Text('4. Các bảng', style: h),
             const SizedBox(height: 8),

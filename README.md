@@ -11,7 +11,13 @@ Web tính điểm ELO riêng cho các thành viên team dựa trên API lịch s
 - Chỉ tính trận **nội bộ**: TẤT CẢ người chơi của cả 2 đội đều là thành viên team.
 - Loại **trận "ma"**: (1) chỉ có 1 người chơi hoặc một đội rỗng (Xv0 — không có đối thủ), hoặc
   (2) tổng `kills + losses` (giết + mất quân) của tất cả người chơi `< 10` (không có giao tranh thật).
-- Mỗi trận nội bộ cộng `elo_change` (API GPlay trả sẵn) vào ELO từng người. **Cho phép âm.**
+- **Performance ELO** (không chỉ thắng/thua): mỗi trận, từng chỉ số (giết/mất quân, phá công trình,
+  đào vàng, dân số, công nghệ, tốc độ lên đời, mở bản đồ, bơm đồ...) được chuẩn hoá tương đối giữa
+  những người cùng trận thành `perf ∈ [0,1]`. Điểm nhận `S = 0.5·(thắng?1:0) + 0.5·perf`,
+  cập nhật `Δ = 28·(S − E)` với `E` là kỳ vọng theo ELO trung bình 2 đội. Bắt đầu 0, **cho phép âm**.
+  Thắng/thua lấy từ `statistics.result` (KHÔNG dùng `victory_team_idx` — field này luôn = 0).
+- Điều chỉnh theo **tổng số trận** (mỗi bảng): `ELO = rating × games/(games+10) + 2·√games`
+  — chơi ít thì ELO co về 0 (tránh mẫu nhỏ vọt top), chơi nhiều được cộng thưởng nhẹ.
 - Xếp hạng theo ELO giảm dần, chia tier: **Top 1 = 3 người, Top 2 = 2, Top 3 = 2, Top 4 = 3**.
 - Ngoài ELO **Tổng**, còn tính ELO **riêng cho từng thể loại 1v1 / 2v2 / 3v3 / 4v4** (chỉ trận
   cân người; trận lệch như 3v4 chỉ tính vào Tổng). Web có nút chọn chế độ để xem từng bảng.

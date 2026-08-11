@@ -28,6 +28,13 @@ const K = 28; // độ nhạy mỗi trận
 const ALPHA = 0.5; // trọng số Kết quả (thắng/thua) so với Phong độ (chỉ số)
 const MODES = ["1v1", "2v2", "3v3", "4v4"]; // các thể loại tính riêng (trận cân người)
 
+// Điều chỉnh theo TỔNG SỐ TRẬN (trong cửa sổ, theo từng bảng):
+//   ELO_hiển_thị = rating × games/(games+CONF_C)  +  ACT_B × √games
+//   - Hệ số tin cậy: chơi ít -> ELO co về 0 (tránh mẫu nhỏ vọt top).
+//   - Thưởng hoạt động: chơi nhiều -> cộng thêm (giảm dần theo căn bậc hai).
+const CONF_C = 10;
+const ACT_B = 2;
+
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
 // Các chỉ số phong độ: trọng số + hàm "độ tốt" (giá trị càng lớn càng giỏi).
@@ -43,7 +50,7 @@ const METRICS = [
   { w: 0.05, g: (s) => num(s.total_population) }, // tổng dân số
   // Công nghệ & lên đời (0.25)
   { w: 0.1, g: (s) => num(s.technologies) }, // nâng cấp công nghệ
-  { w: 0.1, g: (s) => { const t = num(s.bronze_age_upgraded_time); return t > 0 ? -t : -1e13; } }, // lên đời nhanh (thời gian ít = tốt; 0 = chưa lên đời → tệ nhất)
+  { w: 0.1, g: (s) => { const t = num(s.bronze_age_upgraded_time); return t > 0 ? -t : NaN; } }, // lên đời nhanh (thời gian ít = tốt; 0 = chưa lên đời → coi như tệ nhất)
   { w: 0.05, g: (s) => (num(s.age) >= 4 ? 1 : 0) }, // đạt đời 4
   // Bản đồ & hỗ trợ (0.20)
   { w: 0.12, g: (s) => num(s.exploration) }, // mở bản đồ
@@ -121,11 +128,16 @@ function perfScores(m) {
   const stats = players.map((p) => stt[p.uuid] || {});
 
   // Chuẩn hoá từng chỉ số theo min-max giữa những người cùng trận.
+  // Giá trị NaN (không hợp lệ, vd chưa lên đời) không tính vào min/max và bị gán 0 (tệ nhất).
   const normed = METRICS.map((mt) => {
     const gs = stats.map((s) => mt.g(s));
-    const mn = Math.min(...gs);
-    const mx = Math.max(...gs);
-    return gs.map((v) => (mx === mn ? 0.5 : (v - mn) / (mx - mn)));
+    const valid = gs.filter((v) => Number.isFinite(v));
+    if (valid.length === 0) return gs.map(() => 0.5);
+    const mn = Math.min(...valid);
+    const mx = Math.max(...valid);
+    return gs.map((v) =>
+      !Number.isFinite(v) ? 0 : mx === mn ? 0.5 : (v - mn) / (mx - mn)
+    );
   });
 
   return players.map((p, i) => {
@@ -184,12 +196,16 @@ function applyElo(bucketOf, m, ps) {
 }
 
 function buildLeaderboard(info, meta) {
-  const round = (b) => ({
-    elo: Math.round(b.rating),
-    games: b.games,
-    wins: b.wins,
-    losses: b.losses,
-  });
+  const round = (b) => {
+    const rel = b.games > 0 ? b.games / (b.games + CONF_C) : 0; // hệ số tin cậy
+    const bonus = ACT_B * Math.sqrt(b.games); // thưởng hoạt động
+    return {
+      elo: Math.round(b.rating * rel + bonus),
+      games: b.games,
+      wins: b.wins,
+      losses: b.losses,
+    };
+  };
   const members = TEAM.map((u) => {
     const modes = {};
     for (const k of MODES) modes[k] = round(info[u].modes[k]);

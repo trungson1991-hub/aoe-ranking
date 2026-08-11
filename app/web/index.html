@@ -7,10 +7,59 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <meta name="description" content="Bảng xếp hạng ELO nội bộ team AoE">
 
+  <!-- Icon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="apple-touch-icon" href="icons/Icon-192.png"/>
+  <meta name="theme-color" content="#0F172A"/>
+
+  <!-- Open Graph / Twitter (ảnh thumbnail khi chia sẻ link qua app chat) -->
+  <meta property="og:type" content="website"/>
+  <meta property="og:title" content="AoE Ranking — Bảng xếp hạng ELO"/>
+  <meta property="og:description" content="Bảng xếp hạng ELO nội bộ team AoE, cập nhật tự động hằng ngày."/>
+  <meta property="og:image" content="https://trungson1991-hub.github.io/aoe-ranking/og-image.png"/>
+  <meta property="og:url" content="https://trungson1991-hub.github.io/aoe-ranking/"/>
+  <meta name="twitter:card" content="summary_large_image"/>
+  <meta name="twitter:title" content="AoE Ranking — Bảng xếp hạng ELO"/>
+  <meta name="twitter:description" content="Bảng xếp hạng ELO nội bộ team AoE."/>
+  <meta name="twitter:image" content="https://trungson1991-hub.github.io/aoe-ranking/og-image.png"/>
+
   <link rel="manifest" href="manifest.json">
   <title>AoE Ranking</title>
+
+  <style>
+    body { margin: 0; background: #0F172A; }
+    #loading {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: radial-gradient(circle at 50% 35%, #1E293B 0%, #0F172A 70%);
+      font-family: -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; color: #fff;
+    }
+    #loading .tr { font-size: 72px; line-height: 1; animation: pulse 1.4s ease-in-out infinite; }
+    #loading .tt { margin-top: 12px; font-size: 20px; font-weight: 800; letter-spacing: .5px; }
+    #loading .tt b { color: #FBBF24; }
+    #loading .sp {
+      margin-top: 22px; width: 34px; height: 34px; border-radius: 50%;
+      border: 3px solid rgba(251,191,36,.25); border-top-color: #FBBF24;
+      animation: spin .9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.12); opacity: .85; } }
+  </style>
 </head>
 <body>
+  <!-- Màn hình loading: hiện trước khi Flutter vẽ khung đầu tiên, rồi tự ẩn. -->
+  <div id="loading">
+    <div class="tr">🏆</div>
+    <div class="tt">AoE <b>Ranking</b></div>
+    <div class="sp"></div>
+  </div>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var l = document.getElementById('loading');
+      if (l) { l.style.transition = 'opacity .35s'; l.style.opacity = '0'; setTimeout(function () { l.remove(); }, 400); }
+    });
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

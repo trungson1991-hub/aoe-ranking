@@ -133,12 +133,6 @@ class _Content extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ranked = board.ranked(view);
-    // Gom theo tier, giữ thứ tự hạng.
-    final byTier = <String, List<RankedMember>>{};
-    for (final r in ranked) {
-      byTier.putIfAbsent(r.tier.isEmpty ? 'Khác' : r.tier, () => []).add(r);
-    }
-
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720),
@@ -149,10 +143,8 @@ class _Content extends StatelessWidget {
             const SizedBox(height: 16),
             _ViewSelector(view: view, onChanged: onViewChanged),
             const SizedBox(height: 20),
-            for (final entry in byTier.entries) ...[
-              _TierSection(tier: entry.key, members: entry.value),
-              const SizedBox(height: 20),
-            ],
+            for (final r in ranked)
+              _MemberCard(ranked: r, accent: _rankColor(r.rank)),
             const SizedBox(height: 8),
             Center(
               child: Text(
@@ -167,6 +159,20 @@ class _Content extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// Màu theo thứ hạng: top 1 vàng, 2 bạc, 3 đồng, còn lại xám.
+Color _rankColor(int rank) {
+  switch (rank) {
+    case 1:
+      return const Color(0xFFFBBF24);
+    case 2:
+      return const Color(0xFFC7D0DD);
+    case 3:
+      return const Color(0xFFCD7F32);
+    default:
+      return const Color(0xFF64748B);
   }
 }
 
@@ -261,53 +267,6 @@ class _Chip extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _TierSection extends StatelessWidget {
-  const _TierSection({required this.tier, required this.members});
-
-  final String tier;
-  final List<RankedMember> members;
-
-  Color get _accent {
-    switch (tier) {
-      case 'Top 1':
-        return const Color(0xFFFBBF24);
-      case 'Top 2':
-        return const Color(0xFF60A5FA);
-      case 'Top 3':
-        return const Color(0xFF34D399);
-      case 'Top 4':
-        return const Color(0xFFF87171);
-      default:
-        return Colors.white38;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(width: 4, height: 20, color: _accent),
-            const SizedBox(width: 8),
-            Text(
-              tier,
-              style: TextStyle(
-                color: _accent,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        for (final m in members) _MemberCard(ranked: m, accent: _accent),
-      ],
     );
   }
 }
@@ -496,7 +455,7 @@ class _MethodSheet extends StatelessWidget {
             const Text('4. Các bảng', style: h),
             const SizedBox(height: 8),
             bullet('Tính riêng: Tổng và 1v1 / 2v2 / 3v3 / 4v4 (chỉ trận cân người).'),
-            bullet('Xếp hạng theo ELO, chia tier: Top 1 = 3, Top 2 = 2, Top 3 = 2, Top 4 = 3 người.'),
+            bullet('Xếp hạng theo ELO từ cao đến thấp (hạng 1, 2, 3...).'),
             const SizedBox(height: 16),
             const Text(
               'Cập nhật tự động 7:00 / 14:00 / 21:00 hàng ngày (giờ VN).',

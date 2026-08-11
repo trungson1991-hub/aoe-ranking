@@ -21,7 +21,7 @@ Web tính điểm ELO riêng cho các thành viên team dựa trên API lịch s
   Thắng/thua lấy từ `statistics.result` (KHÔNG dùng `victory_team_idx` — field này luôn = 0).
 - Điều chỉnh theo **tổng số trận** (mỗi bảng): `ELO = rating × games/(games+10) + 2·√games`
   — chơi ít thì ELO co về 0 (tránh mẫu nhỏ vọt top), chơi nhiều được cộng thưởng nhẹ.
-- Xếp hạng theo ELO giảm dần, chia tier: **Top 1 = 3 người, Top 2 = 2, Top 3 = 2, Top 4 = 3**.
+- Xếp hạng theo ELO giảm dần (hạng 1, 2, 3...).
 - Ngoài ELO **Tổng**, còn tính ELO **riêng cho từng thể loại 1v1 / 2v2 / 3v3 / 4v4** (chỉ trận
   cân người; trận lệch như 3v4 chỉ tính vào Tổng). Web có nút chọn chế độ để xem từng bảng.
 - Tự chạy **7:00 / 14:00 / 21:00 hàng ngày** (giờ VN) bằng GitHub Actions cron.

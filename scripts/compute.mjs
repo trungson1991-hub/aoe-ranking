@@ -131,11 +131,10 @@ function realPlayers(m) {
   return real;
 }
 
-// Mode tính theo SỐ NGƯỜI THỰC mỗi đội (sau khi loại viewer trùng màu).
-function modeKey(m) {
-  const real = realPlayers(m);
-  const r = real.filter((p) => p.idx === 0).length;
-  const b = real.filter((p) => p.idx === 1).length;
+// Mode theo SỐ NGƯỜI THỰC mỗi đội (từ danh sách đã loại viewer trong perfScores).
+function modeKeyFromPlayers(ps) {
+  const r = ps.filter((p) => p.idx === 0).length;
+  const b = ps.filter((p) => p.idx === 1).length;
   if (r === b && r >= 1 && r <= 4) return `${r}v${b}`;
   return null;
 }
@@ -249,10 +248,11 @@ async function main() {
   const START_EPOCH = Math.floor(startDate.getTime() / 1000);
 
   const union = new Map();
-  for (const uuid of TEAM) {
-    const list = await fetchUserMatches(uuid, START_EPOCH);
-    for (const m of list) union.set(m.game_id, m);
-  }
+  // Fetch song song tất cả thành viên (lịch sử trận nội bộ trùng nhau, gộp theo game_id).
+  const lists = await Promise.all(
+    TEAM.map((uuid) => fetchUserMatches(uuid, START_EPOCH))
+  );
+  for (const list of lists) for (const m of list) union.set(m.game_id, m);
 
   const eligible = [...union.values()]
     .filter((m) => isInternal(m) && !isGhost(m))
@@ -270,7 +270,7 @@ async function main() {
     }
     const ps = perfScores(m);
     applyElo((u) => info[u].total, m, ps); // ELO tổng
-    const mk = modeKey(m);
+    const mk = modeKeyFromPlayers(ps); // theo số người thực (đã loại viewer)
     if (mk) applyElo((u) => info[u].modes[mk], m, ps); // ELO theo thể loại
   }
 

@@ -1,6 +1,6 @@
-// Tính ELO nội bộ team trong CỬA SỔ TRƯỢT N tháng gần nhất.
-// Mỗi lần chạy đều tính lại toàn bộ trong phạm vi N tháng (không dùng checkpoint,
-// vì cửa sổ trượt nên trận cũ phải rơi ra khỏi bảng mỗi lần).
+// Tính "Performance ELO" nội bộ team trong cửa sổ trượt N tháng.
+// ELO không chỉ dựa vào thắng/thua mà dựa vào phong độ (các chỉ số trong trận).
+// Mỗi lần chạy tính lại toàn bộ trong cửa sổ (không dùng checkpoint).
 //
 // Chạy:  node scripts/compute.mjs
 // Ghi ra: app/web/data/leaderboard.json
@@ -23,6 +23,34 @@ const HEADERS = {
   Referer: "https://gplay.vn/",
 };
 
+// ---- Tham số cơ chế ELO ----
+const K = 28; // độ nhạy mỗi trận
+const ALPHA = 0.5; // trọng số Kết quả (thắng/thua) so với Phong độ (chỉ số)
+const MODES = ["1v1", "2v2", "3v3", "4v4"]; // các thể loại tính riêng (trận cân người)
+
+const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+
+// Các chỉ số phong độ: trọng số + hàm "độ tốt" (giá trị càng lớn càng giỏi).
+// Tổng trọng số = 1.0. Nhóm: Combat 0.30 / Kinh tế 0.25 / Công nghệ&lên đời 0.25 / Bản đồ&hỗ trợ 0.20
+const METRICS = [
+  // Combat (0.30)
+  { w: 0.15, g: (s) => num(s.kills) }, // giết quân
+  { w: 0.1, g: (s) => -num(s.losses) }, // mất quân (ít hơn = tốt)
+  { w: 0.05, g: (s) => num(s.razings) }, // phá công trình
+  // Kinh tế (0.25)
+  { w: 0.1, g: (s) => num(s.gold_collected) }, // đào vàng
+  { w: 0.1, g: (s) => num(s.villager_high) }, // nông dân đỉnh
+  { w: 0.05, g: (s) => num(s.total_population) }, // tổng dân số
+  // Công nghệ & lên đời (0.25)
+  { w: 0.1, g: (s) => num(s.technologies) }, // nâng cấp công nghệ
+  { w: 0.1, g: (s) => { const t = num(s.bronze_age_upgraded_time); return t > 0 ? -t : -1e13; } }, // lên đời nhanh (thời gian ít = tốt; 0 = chưa lên đời → tệ nhất)
+  { w: 0.05, g: (s) => (num(s.age) >= 4 ? 1 : 0) }, // đạt đời 4
+  // Bản đồ & hỗ trợ (0.20)
+  { w: 0.12, g: (s) => num(s.exploration) }, // mở bản đồ
+  { w: 0.05, g: (s) => num(s.tribute_given) }, // bơm đồ (cống nạp)
+  { w: 0.03, g: (s) => (num(s.total_population) > 0 ? num(s.living_population) / num(s.total_population) : 0) }, // bảo toàn lực lượng
+];
+
 // ---- API ----
 
 async function fetchPage(uuid, size, index) {
@@ -35,7 +63,6 @@ async function fetchPage(uuid, size, index) {
   return json?.Data?.list ?? [];
 }
 
-// Lấy mọi trận có created_time >= fromEpoch (API trả mới -> cũ nên dừng sớm).
 async function fetchUserMatches(uuid, fromEpoch) {
   const size = 100;
   const MAX_PAGES = 100;
@@ -53,33 +80,28 @@ async function fetchUserMatches(uuid, fromEpoch) {
   return out;
 }
 
-// ---- Tính ELO ----
+// ---- Lọc trận ----
 
 const teamSet = new Set(TEAM);
 
-// Trận nội bộ: MỌI người chơi (đang có mặt) đều thuộc team — chỉ cần 1 người ngoài team là loại.
+// Trận nội bộ: MỌI người chơi (đang có mặt) đều thuộc team.
 function isInternal(m) {
   const parts = [...m.red_team_members, ...m.blue_team_members];
   return parts.length > 0 && parts.every((p) => teamSet.has(p.user_uuid));
 }
 
-// Trận "ma" (bị loại khỏi tính ELO):
-//   1) Chỉ có 1 người chơi, hoặc một đội rỗng (Xv0 — không có đối thủ).
-//   2) Tổng (kills + losses) của tất cả người chơi < 10 (trận không có giao tranh thật).
+// Trận "ma" (loại): (1) <=1 người hoặc một đội rỗng (Xv0); (2) tổng kills+losses < 10.
 function isGhost(m) {
   const red = m.red_team_members.length;
   const blue = m.blue_team_members.length;
   if (red + blue <= 1) return true;
-  if (red === 0 || blue === 0) return true; // Xv0: thiếu hẳn một phía
+  if (red === 0 || blue === 0) return true;
   let kd = 0;
   for (const s of Object.values(m.statistics || {})) {
     kd += (s.kills ?? 0) + (s.losses ?? 0);
   }
   return kd < 10;
 }
-
-// Các thể loại tính ELO riêng (chỉ trận cân người). Trận lệch (vd 3v4) chỉ vào ELO tổng.
-const MODES = ["1v1", "2v2", "3v3", "4v4"];
 
 function modeKey(m) {
   const r = m.red_team_members.length;
@@ -88,94 +110,145 @@ function modeKey(m) {
   return null;
 }
 
-function emptyStat() {
-  return { elo: 0, games: 0, wins: 0, losses: 0 };
+// ---- Phong độ ----
+
+// Tính điểm phong độ (0..1) cho mỗi người trong 1 trận, chuẩn hoá min-max TƯƠNG ĐỐI trong trận.
+function perfScores(m) {
+  const players = [];
+  for (const x of m.red_team_members) players.push({ uuid: x.user_uuid, idx: 0 });
+  for (const x of m.blue_team_members) players.push({ uuid: x.user_uuid, idx: 1 });
+  const stt = m.statistics || {};
+  const stats = players.map((p) => stt[p.uuid] || {});
+
+  // Chuẩn hoá từng chỉ số theo min-max giữa những người cùng trận.
+  const normed = METRICS.map((mt) => {
+    const gs = stats.map((s) => mt.g(s));
+    const mn = Math.min(...gs);
+    const mx = Math.max(...gs);
+    return gs.map((v) => (mx === mn ? 0.5 : (v - mn) / (mx - mn)));
+  });
+
+  return players.map((p, i) => {
+    let perf = 0;
+    METRICS.forEach((mt, k) => (perf += mt.w * normed[k][i]));
+    return { uuid: p.uuid, idx: p.idx, perf };
+  });
 }
 
-function emptyTotals() {
-  const t = {};
+// ---- Cập nhật ELO tuần tự ----
+
+function emptyBucket() {
+  return { rating: 0, games: 0, wins: 0, losses: 0 };
+}
+
+function emptyInfo() {
+  const info = {};
   for (const u of TEAM) {
     const modes = {};
-    for (const k of MODES) modes[k] = emptyStat();
-    t[u] = { name: "", avatar_url: "", total: emptyStat(), modes };
+    for (const k of MODES) modes[k] = emptyBucket();
+    info[u] = { name: "", avatar_url: "", total: emptyBucket(), modes };
   }
-  return t;
+  return info;
 }
 
-function accumulate(totals, internalMatches) {
-  for (const m of internalMatches) {
-    const mk = modeKey(m);
-    for (const [members, idx] of [
-      [m.red_team_members, 0],
-      [m.blue_team_members, 1],
-    ]) {
-      for (const x of members) {
-        const t = totals[x.user_uuid];
-        if (!t) continue;
-        const delta = x.elo_change ?? 0;
-        const win = m.victory_team_idx === idx;
-        const apply = (s) => {
-          s.elo += delta;
-          s.games += 1;
-          if (win) s.wins += 1;
-          else s.losses += 1;
-        };
-        apply(t.total); // ELO tổng: mọi trận nội bộ
-        if (mk) apply(t.modes[mk]); // ELO theo thể loại: chỉ trận cân người
-        if (x.name) t.name = x.name;
-        if (x.avatar_url) t.avatar_url = x.avatar_url;
-      }
-    }
+// Thắng/thua lấy từ statistics[uuid].result (1=thắng, 2=thua).
+// Lưu ý: KHÔNG dùng victory_team_idx vì field này không đáng tin (luôn = 0).
+function isWin(m, uuid) {
+  return (m.statistics?.[uuid]?.result ?? 0) === 1;
+}
+
+// Cập nhật 1 "bucket" (total hoặc 1 mode) cho tất cả người trong trận.
+function applyElo(bucketOf, m, ps) {
+  const sums = [0, 0];
+  const counts = [0, 0];
+  for (const p of ps) {
+    sums[p.idx] += bucketOf(p.uuid).rating;
+    counts[p.idx] += 1;
+  }
+  const avg = (i) => (counts[i] ? sums[i] / counts[i] : 0);
+  const a0 = avg(0);
+  const a1 = avg(1);
+
+  for (const p of ps) {
+    const bk = bucketOf(p.uuid);
+    const my = p.idx === 0 ? a0 : a1;
+    const opp = p.idx === 0 ? a1 : a0;
+    const expected = 1 / (1 + Math.pow(10, (opp - my) / 400));
+    const win = isWin(m, p.uuid) ? 1 : 0;
+    const score = ALPHA * win + (1 - ALPHA) * p.perf;
+    bk.rating += K * (score - expected);
+    bk.games += 1;
+    if (win) bk.wins += 1;
+    else bk.losses += 1;
   }
 }
 
-// Xuất dữ liệu thô theo từng người (tổng + từng mode). Việc xếp hạng & chia tier
-// do web tự tính theo chế độ đang chọn (không cần tải lại khi đổi mode).
-function buildLeaderboard(totals, meta) {
-  const members = TEAM.map((u) => ({
-    user_uuid: u,
-    name: totals[u].name || u.slice(0, 8),
-    avatar_url: totals[u].avatar_url || "",
-    total: totals[u].total,
-    modes: totals[u].modes,
-  }));
+function buildLeaderboard(info, meta) {
+  const round = (b) => ({
+    elo: Math.round(b.rating),
+    games: b.games,
+    wins: b.wins,
+    losses: b.losses,
+  });
+  const members = TEAM.map((u) => {
+    const modes = {};
+    for (const k of MODES) modes[k] = round(info[u].modes[k]);
+    return {
+      user_uuid: u,
+      name: info[u].name || u.slice(0, 8),
+      avatar_url: info[u].avatar_url || "",
+      total: round(info[u].total),
+      modes,
+    };
+  });
   return { ...meta, tiers: TIERS, members };
 }
 
 // ---- Main ----
 
 async function main() {
-  // Mốc bắt đầu = hiện tại lùi N tháng.
   const startDate = new Date();
   startDate.setMonth(startDate.getMonth() - WINDOW_MONTHS);
   const START_EPOCH = Math.floor(startDate.getTime() / 1000);
 
-  // Fetch toàn bộ trận trong cửa sổ của mọi thành viên, gộp theo game_id.
   const union = new Map();
   for (const uuid of TEAM) {
     const list = await fetchUserMatches(uuid, START_EPOCH);
     for (const m of list) union.set(m.game_id, m);
   }
 
-  const internal = [...union.values()]
+  const eligible = [...union.values()]
     .filter((m) => isInternal(m) && !isGhost(m))
-    .sort((a, b) => a.created_time - b.created_time);
+    .sort((a, b) => a.created_time - b.created_time); // xử lý theo thứ tự thời gian
 
-  const totals = emptyTotals();
-  accumulate(totals, internal);
+  const info = emptyInfo();
 
-  const board = buildLeaderboard(totals, {
+  for (const m of eligible) {
+    // Cập nhật tên/avatar.
+    for (const x of [...m.red_team_members, ...m.blue_team_members]) {
+      if (info[x.user_uuid]) {
+        if (x.name) info[x.user_uuid].name = x.name;
+        if (x.avatar_url) info[x.user_uuid].avatar_url = x.avatar_url;
+      }
+    }
+    const ps = perfScores(m);
+    applyElo((u) => info[u].total, m, ps); // ELO tổng
+    const mk = modeKey(m);
+    if (mk) applyElo((u) => info[u].modes[mk], m, ps); // ELO theo thể loại
+  }
+
+  const board = buildLeaderboard(info, {
     updated_at: Math.floor(Date.now() / 1000),
     start_epoch: START_EPOCH,
     window_months: WINDOW_MONTHS,
     total_matches: union.size,
-    internal_matches: internal.length,
+    internal_matches: eligible.length,
   });
   fs.mkdirSync(path.dirname(OUT_FILE), { recursive: true });
   fs.writeFileSync(OUT_FILE, JSON.stringify(board, null, 2));
 
   console.log(
-    `Cửa sổ ${WINDOW_MONTHS} tháng: ${internal.length} trận nội bộ / ${union.size} trận, ` +
+    `Performance ELO — cửa sổ ${WINDOW_MONTHS} tháng: ${eligible.length} trận, ` +
       `từ ${startDate.toISOString().slice(0, 10)}`
   );
 }

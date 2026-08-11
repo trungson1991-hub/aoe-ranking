@@ -64,11 +64,13 @@ function isInternal(m) {
 }
 
 // Trận "ma" (bị loại khỏi tính ELO):
-//   1) Chỉ có 1 người chơi.
+//   1) Chỉ có 1 người chơi, hoặc một đội rỗng (Xv0 — không có đối thủ).
 //   2) Tổng (kills + losses) của tất cả người chơi < 10 (trận không có giao tranh thật).
 function isGhost(m) {
-  const nPlayers = m.red_team_members.length + m.blue_team_members.length;
-  if (nPlayers <= 1) return true;
+  const red = m.red_team_members.length;
+  const blue = m.blue_team_members.length;
+  if (red + blue <= 1) return true;
+  if (red === 0 || blue === 0) return true; // Xv0: thiếu hẳn một phía
   let kd = 0;
   for (const s of Object.values(m.statistics || {})) {
     kd += (s.kills ?? 0) + (s.losses ?? 0);

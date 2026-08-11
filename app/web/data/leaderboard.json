@@ -3,7 +3,7 @@
   "start_epoch": 1770797037,
   "window_months": 6,
   "total_matches": 1472,
-  "internal_matches": 312,
+  "internal_matches": 311,
   "tiers": [
     {
       "label": "Top 1",
@@ -66,8 +66,8 @@
       "avatar_url": "https://cdn-data.gtvplus.vn/avatar/avatar_001.png",
       "total": {
         "elo": 36,
-        "games": 208,
-        "wins": 132,
+        "games": 207,
+        "wins": 131,
         "losses": 76
       },
       "modes": {
@@ -140,8 +140,8 @@
       "avatar_url": "https://cdn-data.gtvplus.vn/avatar/avatar_006.png",
       "total": {
         "elo": 6,
-        "games": 222,
-        "wins": 115,
+        "games": 221,
+        "wins": 114,
         "losses": 107
       },
       "modes": {
@@ -214,8 +214,8 @@
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100001/11100001_27c227dd-6d75-4181-90ad-6a95cfe8b82f.png",
       "total": {
         "elo": 51,
-        "games": 168,
-        "wins": 79,
+        "games": 167,
+        "wins": 78,
         "losses": 89
       },
       "modes": {

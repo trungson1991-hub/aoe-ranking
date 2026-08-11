@@ -478,6 +478,44 @@
           "losses": 3
         }
       }
+    },
+    {
+      "user_uuid": "bbb371ae-d57c-4f9c-ade8-94bae76cab22",
+      "name": "Tada",
+      "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100001/11100001_27c227dd-6d75-4181-90ad-6a95cfe8b82f.png",
+      "last_played": 0,
+      "total": {
+        "elo": 0,
+        "games": 0,
+        "wins": 0,
+        "losses": 0
+      },
+      "modes": {
+        "1v1": {
+          "elo": 0,
+          "games": 0,
+          "wins": 0,
+          "losses": 0
+        },
+        "2v2": {
+          "elo": 0,
+          "games": 0,
+          "wins": 0,
+          "losses": 0
+        },
+        "3v3": {
+          "elo": 0,
+          "games": 0,
+          "wins": 0,
+          "losses": 0
+        },
+        "4v4": {
+          "elo": 0,
+          "games": 0,
+          "wins": 0,
+          "losses": 0
+        }
+      }
     }
   ]
 }

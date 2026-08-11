@@ -115,29 +115,6 @@ class Leaderboard {
       DateTime.fromMillisecondsSinceEpoch(startEpoch * 1000, isUtc: true)
           .add(const Duration(hours: 7));
 
-  // Xếp hạng + chia tier theo chế độ đang chọn.
-  List<RankedMember> ranked(String view) {
-    final list = [...members];
-    list.sort((a, b) {
-      final d = b.statFor(view).elo - a.statFor(view).elo;
-      if (d != 0) return d;
-      return b.statFor(view).wins - a.statFor(view).wins;
-    });
-    final out = <RankedMember>[];
-    var i = 0;
-    for (final t in tiers) {
-      for (var k = 0; k < t.size && i < list.length; k++, i++) {
-        out.add(RankedMember(
-            member: list[i], rank: i + 1, tier: t.label, stat: list[i].statFor(view)));
-      }
-    }
-    for (; i < list.length; i++) {
-      out.add(RankedMember(
-          member: list[i], rank: i + 1, tier: '', stat: list[i].statFor(view)));
-    }
-    return out;
-  }
-
   factory Leaderboard.fromMap(Map<String, dynamic> m) {
     int asInt(dynamic v) => (v is num) ? v.toInt() : 0;
     final members = (m['members'] as List<dynamic>? ?? [])

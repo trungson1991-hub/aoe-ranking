@@ -132,7 +132,17 @@ class _Content extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ranked = board.ranked(view);
+    // Người CÓ chơi trong 6 tháng (lastPlayed > 0) mới được xếp hạng.
+    final active = board.members.where((m) => m.lastPlayed > 0).toList()
+      ..sort((a, b) {
+        final d = b.statFor(view).elo - a.statFor(view).elo;
+        if (d != 0) return d;
+        return b.statFor(view).wins - a.statFor(view).wins;
+      });
+    // Người 6 tháng không có trận -> tách xuống cuối.
+    final inactive = board.members.where((m) => m.lastPlayed <= 0).toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720),
@@ -143,8 +153,49 @@ class _Content extends StatelessWidget {
             const SizedBox(height: 16),
             _ViewSelector(view: view, onChanged: onViewChanged),
             const SizedBox(height: 20),
-            for (final r in ranked)
-              _MemberCard(ranked: r, accent: _rankColor(r.rank)),
+            for (var i = 0; i < active.length; i++)
+              _MemberCard(
+                ranked: RankedMember(
+                  member: active[i],
+                  rank: i + 1,
+                  tier: '',
+                  stat: active[i].statFor(view),
+                ),
+                accent: _rankColor(i + 1),
+              ),
+            if (inactive.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  const Expanded(child: Divider(color: Colors.white24)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Text(
+                      '💤 Không hoạt động (>6 tháng không chơi)',
+                      style: TextStyle(
+                          color: Colors.white38,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const Expanded(child: Divider(color: Colors.white24)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              for (final m in inactive)
+                Opacity(
+                  opacity: 0.55,
+                  child: _MemberCard(
+                    ranked: RankedMember(
+                      member: m,
+                      rank: 0, // không xếp hạng
+                      tier: '',
+                      stat: m.statFor(view),
+                    ),
+                    accent: const Color(0xFF475569),
+                  ),
+                ),
+            ],
             const SizedBox(height: 8),
             Center(
               child: Text(
@@ -294,7 +345,7 @@ class _MemberCard extends StatelessWidget {
           SizedBox(
             width: 28,
             child: Text(
-              '#${ranked.rank}',
+              ranked.rank > 0 ? '#${ranked.rank}' : '—',
               style: TextStyle(
                 color: accent,
                 fontSize: 15,

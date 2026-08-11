@@ -17,6 +17,8 @@ const OUT_FILE = path.join(ROOT, "app", "web", "data", "leaderboard.json");
 
 const BASE =
   "https://game-offline.gplay.vn/game/offline/api/v2.1/statistics/history";
+const PROFILE_BASE =
+  "https://game-offline.gplay.vn/game/offline/api/v2.1/statistics/profile";
 const HEADERS = {
   Accept: "application/json",
   Origin: "https://gplay.vn",
@@ -68,6 +70,20 @@ async function fetchPage(uuid, size, index) {
   if (!res.ok) throw new Error(`GPlay API ${res.status} (user ${uuid}, trang ${index})`);
   const json = await res.json();
   return json?.Data?.list ?? [];
+}
+
+// Lấy tên/avatar hiện tại từ hồ sơ user (public, không cần token).
+async function fetchProfile(uuid) {
+  try {
+    const url = `${PROFILE_BASE}?user_uuid=${encodeURIComponent(uuid)}&game_code=${GAME_CODE}`;
+    const res = await fetch(url, { headers: HEADERS });
+    if (!res.ok) return null;
+    const d = (await res.json())?.Data;
+    if (!d) return null;
+    return { name: d.display_name || "", avatar_url: d.avatar_url || "" };
+  } catch {
+    return null;
+  }
 }
 
 async function fetchUserMatches(uuid, fromEpoch) {
@@ -248,12 +264,15 @@ async function main() {
   startDate.setMonth(startDate.getMonth() - WINDOW_MONTHS);
   const START_EPOCH = Math.floor(startDate.getTime() / 1000);
 
+  // Fetch song song: lịch sử trận + hồ sơ (tên/avatar) của mọi thành viên.
+  const [lists, profileList] = await Promise.all([
+    Promise.all(TEAM.map((uuid) => fetchUserMatches(uuid, START_EPOCH))),
+    Promise.all(TEAM.map((uuid) => fetchProfile(uuid))),
+  ]);
   const union = new Map();
-  // Fetch song song tất cả thành viên (lịch sử trận nội bộ trùng nhau, gộp theo game_id).
-  const lists = await Promise.all(
-    TEAM.map((uuid) => fetchUserMatches(uuid, START_EPOCH))
-  );
   for (const list of lists) for (const m of list) union.set(m.game_id, m);
+  const profiles = {};
+  TEAM.forEach((u, i) => (profiles[u] = profileList[i]));
 
   const eligible = [...union.values()]
     .filter((m) => isInternal(m) && !isGhost(m))
@@ -281,6 +300,15 @@ async function main() {
     applyElo((u) => info[u].total, m, ps); // ELO tổng
     const mk = modeKeyFromPlayers(ps); // theo số người thực (đã loại viewer)
     if (mk) applyElo((u) => info[u].modes[mk], m, ps); // ELO theo thể loại
+  }
+
+  // Ưu tiên tên/avatar từ hồ sơ (luôn mới nhất; áp cả cho người 0 trận như Tada).
+  for (const u of TEAM) {
+    const p = profiles[u];
+    if (p) {
+      if (p.name) info[u].name = p.name;
+      if (p.avatar_url) info[u].avatar_url = p.avatar_url;
+    }
   }
 
   const board = buildLeaderboard(info, {

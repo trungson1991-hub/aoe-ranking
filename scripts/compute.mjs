@@ -1,26 +1,19 @@
-// Tính ELO nội bộ team theo cơ chế TĂNG DẦN (incremental) có lưu checkpoint.
+// Tính ELO nội bộ team trong CỬA SỔ TRƯỢT N tháng gần nhất.
+// Mỗi lần chạy đều tính lại toàn bộ trong phạm vi N tháng (không dùng checkpoint,
+// vì cửa sổ trượt nên trận cũ phải rơi ra khỏi bảng mỗi lần).
 //
-// Chạy:  node scripts/compute.mjs            -> cập nhật tăng dần từ checkpoint
-//        node scripts/compute.mjs --rebuild  -> tính lại từ đầu (bỏ checkpoint)
-//        REBUILD=1 node scripts/compute.mjs   -> tương tự --rebuild
-//
-// Ghi ra:
-//   scripts/state.json               -> checkpoint (cursor + ELO luỹ kế) để lần sau chạy tiếp
-//   app/web/data/leaderboard.json    -> dữ liệu cho web hiển thị
+// Chạy:  node scripts/compute.mjs
+// Ghi ra: app/web/data/leaderboard.json
 //
 // Không cần cài package nào (dùng fetch có sẵn của Node 18+).
 
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { TEAM, START_EPOCH, TIERS, GAME_CODE } from "./team.mjs";
+import { TEAM, WINDOW_MONTHS, TIERS, GAME_CODE } from "./team.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-const STATE_FILE = path.join(ROOT, "scripts", "state.json");
 const OUT_FILE = path.join(ROOT, "app", "web", "data", "leaderboard.json");
-
-const REBUILD =
-  process.argv.includes("--rebuild") || process.env.REBUILD === "1";
 
 const BASE =
   "https://game-offline.gplay.vn/game/offline/api/v2.1/statistics/history";
@@ -76,12 +69,6 @@ function emptyTotals() {
   return t;
 }
 
-function normalizeTotals(src) {
-  const t = emptyTotals();
-  if (src) for (const u of TEAM) if (src[u]) t[u] = { ...t[u], ...src[u] };
-  return t;
-}
-
 function accumulate(totals, internalMatches) {
   for (const m of internalMatches) {
     for (const [members, idx] of [
@@ -127,83 +114,41 @@ function buildLeaderboard(totals, meta) {
   return { ...meta, members };
 }
 
-const CONFIG_KEY = JSON.stringify({
-  team: [...TEAM].sort(),
-  start: START_EPOCH,
-  tiers: TIERS,
-});
-
 // ---- Main ----
 
 async function main() {
-  let prev = null;
-  if (!REBUILD && fs.existsSync(STATE_FILE)) {
-    try {
-      prev = JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
-    } catch {
-      prev = null;
-    }
-  }
+  // Mốc bắt đầu = hiện tại lùi N tháng.
+  const startDate = new Date();
+  startDate.setMonth(startDate.getMonth() - WINDOW_MONTHS);
+  const START_EPOCH = Math.floor(startDate.getTime() / 1000);
 
-  const doRebuild = REBUILD || !prev || prev.config_key !== CONFIG_KEY;
-
-  const fromEpoch = doRebuild ? START_EPOCH : prev.cursor_epoch;
-  const prevBoundary = new Set(doRebuild ? [] : prev.boundary_ids ?? []);
-  const totals = doRebuild ? emptyTotals() : normalizeTotals(prev.totals);
-  let internalCount = doRebuild ? 0 : prev.internal_matches ?? 0;
-  let totalSeen = doRebuild ? 0 : prev.total_seen ?? 0;
-
-  const fullUnion = new Map();
+  // Fetch toàn bộ trận trong cửa sổ của mọi thành viên, gộp theo game_id.
+  const union = new Map();
   for (const uuid of TEAM) {
-    const list = await fetchUserMatches(uuid, fromEpoch);
-    for (const m of list) fullUnion.set(m.game_id, m);
+    const list = await fetchUserMatches(uuid, START_EPOCH);
+    for (const m of list) union.set(m.game_id, m);
   }
 
-  let cursor = doRebuild ? START_EPOCH : prev.cursor_epoch;
-  let boundary = doRebuild ? [] : prev.boundary_ids ?? [];
-  if (fullUnion.size > 0) {
-    cursor = Math.max(...[...fullUnion.values()].map((m) => m.created_time));
-    boundary = [...fullUnion.values()]
-      .filter((m) => m.created_time === cursor)
-      .map((m) => m.game_id);
-  }
-
-  const newMatches = [...fullUnion.values()].filter(
-    (m) => !prevBoundary.has(m.game_id)
-  );
-  const internalNew = newMatches
+  const internal = [...union.values()]
     .filter(isInternal)
     .sort((a, b) => a.created_time - b.created_time);
 
-  accumulate(totals, internalNew);
-  internalCount += internalNew.length;
-  totalSeen += newMatches.length;
-
-  const nowEpoch = Math.floor(Date.now() / 1000);
-
-  const state = {
-    config_key: CONFIG_KEY,
-    cursor_epoch: cursor,
-    boundary_ids: boundary,
-    totals,
-    internal_matches: internalCount,
-    total_seen: totalSeen,
-  };
-  fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true });
-  fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+  const totals = emptyTotals();
+  accumulate(totals, internal);
 
   const board = buildLeaderboard(totals, {
-    updated_at: nowEpoch,
+    updated_at: Math.floor(Date.now() / 1000),
     start_epoch: START_EPOCH,
-    total_matches: totalSeen,
-    internal_matches: internalCount,
+    window_months: WINDOW_MONTHS,
+    total_matches: union.size,
+    internal_matches: internal.length,
   });
   fs.mkdirSync(path.dirname(OUT_FILE), { recursive: true });
   fs.writeFileSync(OUT_FILE, JSON.stringify(board, null, 2));
 
   console.log(
-    `${doRebuild ? "REBUILD" : "INCREMENT"}: +${internalNew.length} trận nội bộ mới ` +
-      `(tổng ${internalCount}), cursor=${cursor}`
+    `Cửa sổ ${WINDOW_MONTHS} tháng: ${internal.length} trận nội bộ / ${union.size} trận, ` +
+      `từ ${startDate.toISOString().slice(0, 10)}`
   );
 }
 

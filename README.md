@@ -5,12 +5,12 @@ Web tính điểm ELO riêng cho các thành viên team dựa trên API lịch s
 
 ## Luật tính ELO
 
-- ELO mỗi thành viên **bắt đầu từ 0**, cộng dồn từ **00:00 ngày 01/06/2026** (giờ VN).
+- ELO mỗi thành viên **bắt đầu từ 0**, chỉ tính các trận trong **6 tháng gần nhất** (cửa sổ
+  trượt, cấu hình `WINDOW_MONTHS` trong `scripts/team.mjs`). Mỗi lần cập nhật tính lại toàn bộ
+  cửa sổ này — trận cũ hơn 6 tháng tự rơi ra.
 - Chỉ tính trận **nội bộ**: TẤT CẢ người chơi của cả 2 đội đều là thành viên team.
 - Mỗi trận nội bộ cộng `elo_change` (API GPlay trả sẵn) vào ELO từng người. **Cho phép âm.**
 - Xếp hạng theo ELO giảm dần, chia tier: **Top 1 = 3 người, Top 2 = 2, Top 3 = 2, Top 4 = 3**.
-- **Cập nhật tăng dần (incremental)**: lưu checkpoint `scripts/state.json`; mỗi lần chạy chỉ
-  fetch trận mới hơn mốc rồi cộng tiếp — không tính lại từ đầu.
 - Tự chạy **7:00 / 14:00 / 21:00 hàng ngày** (giờ VN) bằng GitHub Actions cron.
 
 ## Kiến trúc
@@ -18,9 +18,8 @@ Web tính điểm ELO riêng cho các thành viên team dựa trên API lịch s
 ```
 AOE_Ranking/
 ├── scripts/
-│   ├── team.mjs          # ⭐ Danh sách team, mốc bắt đầu, cấu hình tier
-│   ├── compute.mjs       # Fetch API + tính ELO incremental (Node, không cần package)
-│   └── state.json        # Checkpoint (do script/Action ghi)
+│   ├── team.mjs          # ⭐ Danh sách team, cửa sổ tháng (WINDOW_MONTHS), cấu hình tier
+│   └── compute.mjs       # Fetch API + tính ELO cửa sổ 6 tháng (Node, không cần package)
 ├── app/                  # Flutter web (đọc data/leaderboard.json qua HTTP)
 │   ├── web/data/leaderboard.json   # Dữ liệu hiển thị (do script ghi)
 │   └── lib/{main,models/,services/,ui/}.dart
@@ -28,15 +27,14 @@ AOE_Ranking/
 └── README.md
 ```
 
-Luồng: `GitHub Actions (cron)` → chạy `compute.mjs` → ghi `leaderboard.json` + `state.json`
+Luồng: `GitHub Actions (cron)` → chạy `compute.mjs` → ghi `leaderboard.json`
 (commit lại repo) → build Flutter web → deploy **GitHub Pages**. Web đọc `data/leaderboard.json`.
 
 ## Chạy thử ở máy (không cần gì ngoài Node 18+)
 
 ```bash
 cd AOE_Ranking
-node scripts/compute.mjs --rebuild   # tính từ đầu, tạo state.json + leaderboard.json
-node scripts/compute.mjs             # các lần sau: cập nhật tăng dần
+node scripts/compute.mjs             # tính ELO cửa sổ 6 tháng -> app/web/data/leaderboard.json
 
 # Xem web tại chỗ (cần Flutter):
 cd app && flutter pub get && flutter run -d chrome
@@ -64,14 +62,12 @@ cd app && flutter pub get && flutter run -d chrome
 
 - ELO **tự cập nhật** 7:00 / 14:00 / 21:00 hàng ngày. Muốn cập nhật ngay: **Actions → Run workflow**.
 - Nút 🔄 trên web để tải lại dữ liệu mới nhất.
-- **Đổi thành viên/tier/mốc bắt đầu**: sửa `scripts/team.mjs`. `config_key` đổi → lần chạy kế
-  **tự rebuild** (tính lại từ đầu). Không cần làm gì thêm.
-- **Ép tính lại từ đầu**: chạy `node scripts/compute.mjs --rebuild` rồi commit, hoặc xoá
-  `scripts/state.json` trước khi chạy Action.
+- **Đổi thành viên / tier / độ dài cửa sổ**: sửa `scripts/team.mjs` (mảng `TEAM`, `TIERS`,
+  hằng `WINDOW_MONTHS`) rồi commit & push. Mỗi lần chạy đều tính lại toàn bộ nên có hiệu lực ngay.
 
 ## Ghi chú
 
 - API GPlay dùng: `GET https://game-offline.gplay.vn/game/offline/api/v2.1/statistics/history`
   với `user_uuid`, `game_code=aoe`, `size`, `index` (public, CORS mở).
-- **Giới hạn incremental**: nếu API sửa/xoá `elo_change` của trận cũ, hoặc có trận cũ xuất hiện
-  trễ hơn mốc đã lưu, incremental không thấy → chạy `--rebuild` khi cần chuẩn hoá lại.
+- Các trận cũ (trước khi GPlay bật hệ elo) có `elo_change = 0`: vẫn được tính vào số trận /
+  thắng-thua nhưng không làm đổi ELO.

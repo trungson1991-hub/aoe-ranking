@@ -31,16 +31,16 @@ jobs:
         with:
           node-version: '20'
 
-      # Tính ELO tăng dần từ checkpoint (scripts/state.json).
-      - name: Tính ELO (incremental)
+      # Tính lại ELO trong cửa sổ 6 tháng gần nhất.
+      - name: Tính ELO (cửa sổ 6 tháng)
         run: node scripts/compute.mjs
 
-      # Lưu lại checkpoint + dữ liệu để lần sau chạy tiếp. [skip ci] để không tự kích hoạt lại.
-      - name: Lưu checkpoint & dữ liệu
+      # Lưu dữ liệu mới. [skip ci] để không tự kích hoạt lại workflow.
+      - name: Lưu dữ liệu
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/state.json app/web/data/leaderboard.json
+          git add app/web/data/leaderboard.json
           if git diff --cached --quiet; then
             echo "Không có thay đổi để commit."
           else

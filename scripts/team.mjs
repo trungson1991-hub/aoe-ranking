@@ -16,10 +16,9 @@ export const TEAM = [
   "c5dd6537-6818-4309-869d-9bea79193999", // phucyknb
 ];
 
-// ELO bắt đầu cộng dồn từ 00:00 ngày 01/06/2026 (giờ VN, UTC+7).
-export const START_EPOCH = Math.floor(
-  new Date("2026-06-01T00:00:00+07:00").getTime() / 1000
-);
+// Cửa sổ trượt: chỉ tính ELO các trận trong N THÁNG GẦN NHẤT tính tới thời điểm chạy.
+// Mỗi lần cập nhật đều lấy lại đúng N tháng gần nhất (trận cũ hơn sẽ rơi ra khỏi bảng).
+export const WINDOW_MONTHS = 6;
 
 // Phân tier từ trên xuống theo ELO giảm dần. Tổng size nên bằng số thành viên.
 // Top 1 = 3 người, Top 2 = 2, Top 3 = 2, Top 4 = 3. (Top 5 chưa dùng.)

@@ -60,6 +60,15 @@
     });
   </script>
 
+  <script>
+    // Gỡ service worker cũ (nếu có) để không phục vụ bản app bị cache -> web luôn cập nhật.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations()
+        .then(function (rs) { rs.forEach(function (r) { r.unregister(); }); })
+        .catch(function () {});
+    }
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

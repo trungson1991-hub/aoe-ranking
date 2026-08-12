@@ -1,0 +1,354 @@
+import 'package:flutter/material.dart';
+
+import '../models/leaderboard.dart';
+import '../models/tournament.dart';
+import '../services/tournament_service.dart';
+
+class _TeamDraft {
+  final TextEditingController name = TextEditingController();
+  List<String> memberUuids = [];
+}
+
+class TournamentCreatePage extends StatefulWidget {
+  const TournamentCreatePage(
+      {super.key, required this.roster, required this.service});
+
+  final List<Member> roster;
+  final TournamentService service;
+
+  @override
+  State<TournamentCreatePage> createState() => _TournamentCreatePageState();
+}
+
+class _TournamentCreatePageState extends State<TournamentCreatePage> {
+  final _name = TextEditingController();
+  final _pin = TextEditingController();
+  String _format = '1v1';
+  int _firstTo = 1;
+  final List<_TeamDraft> _teams = [_TeamDraft(), _TeamDraft()];
+  bool _saving = false;
+
+  int get _teamSize => int.parse(_format.substring(0, 1));
+
+  String _nameOf(String uuid) =>
+      widget.roster.firstWhere((m) => m.userUuid == uuid,
+          orElse: () => const Member(
+              userUuid: '',
+              name: '?',
+              avatarUrl: '',
+              lastPlayed: 0,
+              total: ModeStat(),
+              modes: {})).name;
+
+  // Các uuid đã được chọn ở đội khác (để không trùng).
+  Set<String> _usedExcept(_TeamDraft self) {
+    final s = <String>{};
+    for (final t in _teams) {
+      if (t == self) continue;
+      s.addAll(t.memberUuids);
+    }
+    return s;
+  }
+
+  Future<void> _pickMembers(_TeamDraft team) async {
+    final used = _usedExcept(team);
+    final selected = {...team.memberUuids};
+    final result = await showDialog<List<String>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          backgroundColor: const Color(0xFF1E293B),
+          title: Text('Chọn $_teamSize thành viên',
+              style: const TextStyle(color: Colors.white, fontSize: 16)),
+          content: SizedBox(
+            width: 320,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final m in widget.roster)
+                  if (!used.contains(m.userUuid))
+                    CheckboxListTile(
+                      value: selected.contains(m.userUuid),
+                      title: Text(m.name,
+                          style: const TextStyle(color: Colors.white)),
+                      onChanged: (v) {
+                        setLocal(() {
+                          if (v == true) {
+                            if (selected.length < _teamSize) {
+                              selected.add(m.userUuid);
+                            }
+                          } else {
+                            selected.remove(m.userUuid);
+                          }
+                        });
+                      },
+                    ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Huỷ')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, selected.toList()),
+                child: const Text('Xong')),
+          ],
+        ),
+      ),
+    );
+    if (result != null) setState(() => team.memberUuids = result);
+  }
+
+  String? _validate() {
+    if (_name.text.trim().isEmpty) return 'Chưa nhập tên giải';
+    if (_pin.text.trim().isEmpty) return 'Chưa đặt PIN cho giải';
+    if (_teams.length < 2) return 'Cần ít nhất 2 đội';
+    final allUuids = <String>{};
+    for (var i = 0; i < _teams.length; i++) {
+      final t = _teams[i];
+      if (t.name.text.trim().isEmpty) return 'Đội ${i + 1} chưa có tên';
+      if (t.memberUuids.length != _teamSize) {
+        return 'Đội "${t.name.text.trim()}" cần đúng $_teamSize thành viên';
+      }
+      for (final u in t.memberUuids) {
+        if (!allUuids.add(u)) return 'Một người bị xếp vào 2 đội';
+      }
+    }
+    return null;
+  }
+
+  Future<void> _save() async {
+    final err = _validate();
+    if (err != null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(err)));
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final teams = <TournTeam>[];
+      for (var i = 0; i < _teams.length; i++) {
+        final d = _teams[i];
+        teams.add(TournTeam(
+          id: 't$i',
+          name: d.name.text.trim(),
+          memberUuids: d.memberUuids,
+          memberNames: d.memberUuids.map(_nameOf).toList(),
+        ));
+      }
+      final teamIds = teams.map((e) => e.id).toList();
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      await widget.service.create((id) => Tournament(
+            id: id,
+            name: _name.text.trim(),
+            pin: _pin.text.trim(),
+            format: _format,
+            firstTo: _firstTo,
+            structure: kStructureRoundRobin,
+            advancePerGroup: 1,
+            createdAt: now,
+            teams: teams,
+            groups: [GroupDef(name: 'Vòng tròn', teamIds: teamIds)],
+            groupFixtures: generateRoundRobin(teamIds, stage: 'Vòng tròn'),
+            koFixtures: const [],
+          ));
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Lỗi lưu: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F172A),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1E293B),
+        foregroundColor: Colors.white,
+        title: const Text('Tạo giải',
+            style: TextStyle(fontWeight: FontWeight.w800)),
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              TextField(
+                controller: _name,
+                style: const TextStyle(color: Colors.white),
+                decoration: _dec('Tên giải'),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _pin,
+                style: const TextStyle(color: Colors.white),
+                decoration: _dec('PIN của giải (dùng để nhập kết quả / xoá)'),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: _dropdown<String>(
+                      label: 'Thể thức',
+                      value: _format,
+                      items: const ['1v1', '2v2', '3v3', '4v4'],
+                      itemLabel: (v) => v,
+                      onChanged: (v) => setState(() {
+                        _format = v!;
+                        for (final t in _teams) {
+                          t.memberUuids = []; // đổi cỡ đội -> xoá chọn cũ
+                        }
+                      }),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _dropdown<int>(
+                      label: 'Chạm (first-to)',
+                      value: _firstTo,
+                      items: List.generate(9, (i) => i + 1),
+                      itemLabel: (v) => 'Chạm $v',
+                      onChanged: (v) => setState(() => _firstTo = v!),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  const Text('Các đội',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800)),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: () => setState(() => _teams.add(_TeamDraft())),
+                    icon: const Icon(Icons.add, color: Color(0xFFFBBF24)),
+                    label: const Text('Thêm đội',
+                        style: TextStyle(color: Color(0xFFFBBF24))),
+                  ),
+                ],
+              ),
+              for (var i = 0; i < _teams.length; i++) _teamCard(i),
+              const SizedBox(height: 20),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFFBBF24),
+                    foregroundColor: Colors.black),
+                onPressed: _saving ? null : _save,
+                child: _saving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Tạo giải',
+                        style: TextStyle(fontWeight: FontWeight.w800)),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'GĐ1: 1 bảng vòng tròn tính điểm. (Nhiều bảng + loại trực tiếp sẽ bổ sung sau.)',
+                style: TextStyle(color: Colors.white38, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _teamCard(int i) {
+    final t = _teams[i];
+    final names = t.memberUuids.map(_nameOf).join(', ');
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: t.name,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _dec('Tên đội ${i + 1}'),
+                ),
+              ),
+              if (_teams.length > 2)
+                IconButton(
+                  onPressed: () => setState(() => _teams.removeAt(i)),
+                  icon: const Icon(Icons.delete_outline, color: Colors.white38),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  names.isEmpty ? 'Chưa chọn thành viên' : names,
+                  style: TextStyle(
+                      color: names.isEmpty ? Colors.white38 : Colors.white70,
+                      fontSize: 13),
+                ),
+              ),
+              TextButton(
+                onPressed: () => _pickMembers(t),
+                child: Text('Chọn ($_teamSize)',
+                    style: const TextStyle(color: Color(0xFFFBBF24))),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _dec(String label) => InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.white54),
+        enabledBorder: const OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.white24)),
+        focusedBorder: const OutlineInputBorder(
+            borderSide: BorderSide(color: Color(0xFFFBBF24))),
+      );
+
+  Widget _dropdown<T>({
+    required String label,
+    required T value,
+    required List<T> items,
+    required String Function(T) itemLabel,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return InputDecorator(
+      decoration: _dec(label),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          isDense: true,
+          dropdownColor: const Color(0xFF1E293B),
+          style: const TextStyle(color: Colors.white),
+          onChanged: onChanged,
+          items: [
+            for (final it in items)
+              DropdownMenuItem(value: it, child: Text(itemLabel(it))),
+          ],
+        ),
+      ),
+    );
+  }
+}

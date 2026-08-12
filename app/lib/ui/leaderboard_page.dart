@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../models/leaderboard.dart';
 import '../services/leaderboard_service.dart';
+import 'tournaments_page.dart';
 import 'user_history_page.dart';
 
 // Các chế độ xem: nhãn hiển thị + key trong dữ liệu.
@@ -152,7 +153,25 @@ class _Content extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           children: [
             _Header(board: board),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            Center(
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TournamentsPage(roster: board.members),
+                  ),
+                ),
+                icon: const Text('🏆', style: TextStyle(fontSize: 16)),
+                label: const Text('Giải đấu'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFFBBF24),
+                  side: const BorderSide(color: Color(0xFFFBBF24)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
             _ViewSelector(view: view, onChanged: onViewChanged),
             const SizedBox(height: 20),
             for (var i = 0; i < active.length; i++)

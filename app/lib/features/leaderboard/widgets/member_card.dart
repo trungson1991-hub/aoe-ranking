@@ -18,6 +18,7 @@ class MemberCard extends StatelessWidget {
     required this.accent,
     required this.sinceEpoch,
     required this.teamUuids,
+    this.animateMedal = false,
   });
 
   final Member member;
@@ -26,6 +27,9 @@ class MemberCard extends StatelessWidget {
   final Color accent;
   final int sinceEpoch;
   final Set<String> teamUuids;
+
+  /// Huy chương bồng bềnh nhẹ (chỉ dùng cho top 3 trên bảng chính).
+  final bool animateMedal;
 
   bool get _isTop3 => rank >= 1 && rank <= 3;
 
@@ -89,9 +93,11 @@ class MemberCard extends StatelessWidget {
         SizedBox(
           width: big ? 34 : 28,
           child: _isTop3
-              ? Text(_medals[rank]!,
-                  style: const TextStyle(fontSize: 24),
-                  textAlign: TextAlign.center)
+              ? (animateMedal
+                  ? _FloatingMedal(medal: _medals[rank]!)
+                  : Text(_medals[rank]!,
+                      style: const TextStyle(fontSize: 24),
+                      textAlign: TextAlign.center))
               : Text(
                   rank > 0 ? '#$rank' : '—',
                   style: TextStyle(
@@ -200,6 +206,47 @@ class MemberCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Huy chương bồng bềnh nhẹ liên tục. RepaintBoundary cô lập nên mỗi frame
+/// chỉ vẽ lại vùng ~30px của huy chương, không đụng tới phần còn lại.
+class _FloatingMedal extends StatefulWidget {
+  const _FloatingMedal({required this.medal});
+
+  final String medal;
+
+  @override
+  State<_FloatingMedal> createState() => _FloatingMedalState();
+}
+
+class _FloatingMedalState extends State<_FloatingMedal>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  )..repeat(reverse: true);
+
+  late final Animation<double> _dy = Tween(begin: 2.0, end: -2.0)
+      .animate(CurvedAnimation(parent: _c, curve: Curves.easeInOut));
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _dy,
+        builder: (_, child) =>
+            Transform.translate(offset: Offset(0, _dy.value), child: child),
+        child: Text(widget.medal,
+            style: const TextStyle(fontSize: 24), textAlign: TextAlign.center),
       ),
     );
   }

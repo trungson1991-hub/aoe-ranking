@@ -17,3 +17,20 @@ List<Fixture> groupFixturesAfterEdit(
   list[idx] = list[idx].copyWith(scoreA: scoreA, scoreB: scoreB);
   return list;
 }
+
+/// Đổi thứ tự trận TRONG 1 bảng ([stage]): chuyển trận ở vị trí [oldIndex]
+/// sang [newIndex] (index tính trong danh sách trận của bảng đó).
+/// Trận của các bảng khác giữ nguyên vị trí trong danh sách tổng.
+List<Fixture> reorderStageFixtures(
+  List<Fixture> all,
+  String stage,
+  int oldIndex,
+  int newIndex,
+) {
+  final stageFx = all.where((f) => f.stage == stage).toList();
+  if (oldIndex < 0 || oldIndex >= stageFx.length) return all;
+  final item = stageFx.removeAt(oldIndex);
+  stageFx.insert(newIndex.clamp(0, stageFx.length), item);
+  var i = 0;
+  return [for (final f in all) f.stage == stage ? stageFx[i++] : f];
+}

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -94,11 +95,16 @@ class _UserHistoryPageState extends State<UserHistoryPage> {
                             text: 'Không có trận nào ở thể loại này.')
                         : ListView.builder(
                             padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                            // Dựng sẵn 2 màn hình tile phía trước để cuộn
+                            // không giật; RepaintBoundary cô lập vẽ từng tile.
+                            scrollCacheExtent:
+                                const ScrollCacheExtent.viewport(2),
                             // +1: thẻ tổng quan ở đầu danh sách.
                             itemCount: matches.length + 1,
                             itemBuilder: (_, i) => i == 0
                                 ? _SummaryCard(matches: matches)
-                                : _MatchTile(rec: matches[i - 1]),
+                                : RepaintBoundary(
+                                    child: _MatchTile(rec: matches[i - 1])),
                           ),
                   ),
                 ],

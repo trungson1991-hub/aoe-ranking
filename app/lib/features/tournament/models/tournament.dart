@@ -141,6 +141,8 @@ class Tournament {
 
   Tournament copyWith({
     String? name,
+    List<TournTeam>? teams,
+    List<GroupDef>? groups,
     List<Fixture>? groupFixtures,
     List<Fixture>? koFixtures,
   }) =>
@@ -153,8 +155,8 @@ class Tournament {
         structure: structure,
         advancePerGroup: advancePerGroup,
         createdAt: createdAt,
-        teams: teams,
-        groups: groups,
+        teams: teams ?? this.teams,
+        groups: groups ?? this.groups,
         groupFixtures: groupFixtures ?? this.groupFixtures,
         koFixtures: koFixtures ?? this.koFixtures,
       );

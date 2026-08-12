@@ -62,8 +62,8 @@ class _TournamentsPageState extends State<TournamentsPage> {
               child: ListView.builder(
                 padding: const EdgeInsets.all(12),
                 itemCount: list.length,
-                itemBuilder: (_, i) =>
-                    _TournamentTile(t: list[i], service: _service),
+                itemBuilder: (_, i) => _TournamentTile(
+                    t: list[i], service: _service, roster: widget.roster),
               ),
             ),
           );
@@ -74,10 +74,12 @@ class _TournamentsPageState extends State<TournamentsPage> {
 }
 
 class _TournamentTile extends StatelessWidget {
-  const _TournamentTile({required this.t, required this.service});
+  const _TournamentTile(
+      {required this.t, required this.service, required this.roster});
 
   final Tournament t;
   final TournamentService service;
+  final List<Member> roster;
 
   @override
   Widget build(BuildContext context) {
@@ -100,8 +102,8 @@ class _TournamentTile extends StatelessWidget {
         ),
         trailing: const Icon(Icons.chevron_right, color: Colors.white38),
         onTap: () => Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) =>
-              TournamentDetailPage(tournamentId: t.id, service: service),
+          builder: (_) => TournamentDetailPage(
+              tournamentId: t.id, service: service, roster: roster),
         )),
       ),
     );

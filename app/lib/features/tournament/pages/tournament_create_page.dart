@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../leaderboard/models/leaderboard.dart';
 import '../data/fun_team_names.dart';
+import '../logic/group_assign.dart';
 import '../logic/round_robin.dart';
 import '../models/tournament.dart';
 import '../services/tournament_service.dart';
+import '../widgets/member_picker.dart';
 
 class _TeamDraft {
   _TeamDraft(String initialName) {
@@ -14,6 +16,7 @@ class _TeamDraft {
 
   final TextEditingController name = TextEditingController();
   List<String> memberUuids = [];
+  int? group; // bảng đã chọn (0-based); null = tự chia
 
   void dispose() => name.dispose();
 }
@@ -40,6 +43,11 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
   final List<_TeamDraft> _teams = [];
   bool _saving = false;
 
+  // Điều khiển animation thêm/xoá đội trong danh sách.
+  final _teamListKey = GlobalKey<AnimatedListState>();
+  static const _insertDuration = Duration(milliseconds: 350);
+  static const _removeDuration = Duration(milliseconds: 220);
+
   int get _teamSize => int.parse(_format.substring(0, 1));
 
   @override
@@ -52,6 +60,31 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
 
   _TeamDraft _newDraft() => _TeamDraft(randomFunTeamName(
       exclude: _teams.map((t) => t.name.text).toSet()));
+
+  // Thêm đội vào ĐẦU danh sách (ngay dưới nút "Thêm đội", khỏi phải cuộn
+  // xuống cuối) với animation trượt-hiện cho dễ nhận biết.
+  void _addTeamAtTop() {
+    setState(() => _teams.insert(0, _newDraft()));
+    _teamListKey.currentState?.insertItem(0, duration: _insertDuration);
+  }
+
+  void _removeTeam(int i) {
+    final draft = _teams.removeAt(i);
+    setState(() {});
+    _teamListKey.currentState?.removeItem(
+      i,
+      (context, anim) => SizeTransition(
+        sizeFactor: anim,
+        child: FadeTransition(
+          opacity: anim,
+          child: _teamCard(draft, i, removable: false),
+        ),
+      ),
+      duration: _removeDuration,
+    );
+    // Card đang chạy animation biến mất vẫn dùng controller -> dispose sau.
+    Future.delayed(const Duration(milliseconds: 500), draft.dispose);
+  }
 
   @override
   void dispose() {
@@ -81,50 +114,12 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
   }
 
   Future<void> _pickMembers(_TeamDraft team) async {
-    final used = _usedExcept(team);
-    final selected = {...team.memberUuids};
-    final result = await showDialog<List<String>>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          title: Text('Chọn $_teamSize thành viên',
-              style: const TextStyle(color: Colors.white, fontSize: 16)),
-          content: SizedBox(
-            width: 320,
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                for (final m in widget.roster)
-                  if (!used.contains(m.userUuid))
-                    CheckboxListTile(
-                      value: selected.contains(m.userUuid),
-                      title: Text(m.name,
-                          style: const TextStyle(color: Colors.white)),
-                      onChanged: (v) {
-                        setLocal(() {
-                          if (v == true) {
-                            if (selected.length < _teamSize) {
-                              selected.add(m.userUuid);
-                            }
-                          } else {
-                            selected.remove(m.userUuid);
-                          }
-                        });
-                      },
-                    ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Huỷ')),
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, selected.toList()),
-                child: const Text('Xong')),
-          ],
-        ),
-      ),
+    final result = await showMemberPicker(
+      context,
+      roster: widget.roster,
+      teamSize: _teamSize,
+      initial: team.memberUuids,
+      taken: _usedExcept(team),
     );
     if (result != null) setState(() => team.memberUuids = result);
   }
@@ -144,9 +139,19 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
         if (!allUuids.add(u)) return 'Một người bị xếp vào 2 đội';
       }
     }
-    if (_structure == kStructureGroupsKnockout &&
-        _teams.length < _numGroups * 2) {
-      return 'Cần ít nhất ${_numGroups * 2} đội cho $_numGroups bảng';
+    if (_structure == kStructureGroupsKnockout) {
+      if (_teams.length < _numGroups * 2) {
+        return 'Cần ít nhất ${_numGroups * 2} đội cho $_numGroups bảng';
+      }
+      // Sau khi chia (kể cả đội chọn bảng tay), mỗi bảng phải có >= 2 đội.
+      final buckets = distributeTeams(
+          [for (final t in _teams) t.group], _numGroups);
+      for (var g = 0; g < buckets.length; g++) {
+        if (buckets[g].length < 2) {
+          return 'Bảng ${String.fromCharCode(65 + g)} cần ít nhất 2 đội '
+              '(đổi lựa chọn bảng của các đội)';
+        }
+      }
     }
     return null;
   }
@@ -176,16 +181,16 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
       var advance = 1;
       if (_structure == kStructureGroupsKnockout) {
         advance = _advance;
-        final buckets = List.generate(_numGroups, (_) => <String>[]);
-        for (var i = 0; i < teamIds.length; i++) {
-          buckets[i % _numGroups].add(teamIds[i]); // chia đều theo vòng
-        }
+        // Đội đã chọn bảng giữ nguyên; đội "tự chia" vào bảng ít đội nhất.
+        final buckets = distributeTeams(
+            [for (final t in _teams) t.group], _numGroups);
         groups = [];
         gfx = [];
         for (var i = 0; i < _numGroups; i++) {
           final name = 'Bảng ${String.fromCharCode(65 + i)}';
-          groups.add(GroupDef(name: name, teamIds: buckets[i]));
-          gfx.addAll(generateRoundRobin(buckets[i], stage: name));
+          final ids = [for (final idx in buckets[i]) teamIds[idx]];
+          groups.add(GroupDef(name: name, teamIds: ids));
+          gfx.addAll(generateRoundRobin(ids, stage: name));
         }
       } else {
         groups = [GroupDef(name: 'Vòng tròn', teamIds: teamIds)];
@@ -290,7 +295,13 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
                         value: _numGroups,
                         items: const [2, 3, 4],
                         itemLabel: (v) => '$v bảng',
-                        onChanged: (v) => setState(() => _numGroups = v!),
+                        onChanged: (v) => setState(() {
+                          _numGroups = v!;
+                          // Bớt bảng -> lựa chọn vượt số bảng trở về "tự chia".
+                          for (final t in _teams) {
+                            if ((t.group ?? -1) >= v) t.group = null;
+                          }
+                        }),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -316,14 +327,27 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
                           fontWeight: FontWeight.w800)),
                   const Spacer(),
                   TextButton.icon(
-                    onPressed: () => setState(() => _teams.add(_newDraft())),
+                    onPressed: _addTeamAtTop,
                     icon: const Icon(Icons.add, color: AppColors.gold),
                     label: const Text('Thêm đội',
                         style: TextStyle(color: AppColors.gold)),
                   ),
                 ],
               ),
-              for (var i = 0; i < _teams.length; i++) _teamCard(i),
+              AnimatedList(
+                key: _teamListKey,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                initialItemCount: _teams.length,
+                itemBuilder: (context, i, anim) => SizeTransition(
+                  sizeFactor:
+                      CurvedAnimation(parent: anim, curve: Curves.easeOut),
+                  child: FadeTransition(
+                    opacity: anim,
+                    child: _teamCard(_teams[i], i),
+                  ),
+                ),
+              ),
               const SizedBox(height: 20),
               FilledButton(
                 style: FilledButton.styleFrom(
@@ -351,8 +375,7 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
     );
   }
 
-  Widget _teamCard(int i) {
-    final t = _teams[i];
+  Widget _teamCard(_TeamDraft t, int i, {bool removable = true}) {
     final names = t.memberUuids.map(_nameOf).join(', ');
     return Container(
       margin: const EdgeInsets.only(top: 10),
@@ -374,10 +397,9 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
                   decoration: _dec('Tên đội ${i + 1}'),
                 ),
               ),
-              if (_teams.length > 2)
+              if (removable && _teams.length > 2)
                 IconButton(
-                  onPressed: () =>
-                      setState(() => _teams.removeAt(i).dispose()),
+                  onPressed: () => _removeTeam(i),
                   icon: const Icon(Icons.delete_outline, color: Colors.white38),
                 ),
             ],
@@ -400,6 +422,34 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
               ),
             ],
           ),
+          if (_structure == kStructureGroupsKnockout) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Text('Bảng:',
+                    style: TextStyle(color: Colors.white54, fontSize: 13)),
+                const SizedBox(width: 10),
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<int?>(
+                    value: t.group,
+                    isDense: true,
+                    dropdownColor: AppColors.surface,
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    onChanged: (v) => setState(() => t.group = v),
+                    items: [
+                      const DropdownMenuItem<int?>(
+                          value: null, child: Text('Tự chia')),
+                      for (var g = 0; g < _numGroups; g++)
+                        DropdownMenuItem<int?>(
+                            value: g,
+                            child:
+                                Text('Bảng ${String.fromCharCode(65 + g)}')),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

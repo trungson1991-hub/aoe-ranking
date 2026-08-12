@@ -16,7 +16,7 @@ PlayerStat player(String uuid, String name,
       uuid: uuid,
       name: name,
       color: color,
-      empiresType: 11, // Shang
+      empiresType: 10, // Shang (đánh số từ 0 theo dữ liệu GPlay)
       win: win,
       kills: kills,
       losses: losses,
@@ -70,6 +70,9 @@ void main() {
       for (final name in ['MePlayer', 'Mate', 'Rival1', 'Rival2']) {
         expect(find.text(name), findsOneWidget);
       }
+      // empires_type 10 phải hiện Shang (bug cũ: map lệch 1 -> hiện Roman).
+      expect(find.text('Shang'), findsNWidgets(4));
+      expect(find.text('Roman'), findsNothing);
       // Tổng giết quân mỗi đội trong khối tương quan: Đỏ 80, Xanh 30.
       expect(find.text('80'), findsOneWidget);
       expect(find.text('30'), findsWidgets);

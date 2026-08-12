@@ -62,11 +62,13 @@ jobs:
         with:
           channel: stable
 
+      # --wasm: engine WebAssembly (skwasm) render mượt hơn hẳn bản JS;
+      # trình duyệt cũ không hỗ trợ WasmGC sẽ tự rơi về bản JS đi kèm.
       - name: Build web
         run: |
           cd app
           flutter pub get
-          flutter build web --release --pwa-strategy=none --base-href "/${GITHUB_REPOSITORY##*/}/"
+          flutter build web --wasm --release --pwa-strategy=none --base-href "/${GITHUB_REPOSITORY##*/}/"
 
       - uses: actions/upload-pages-artifact@v3
         with:

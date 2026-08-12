@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../leaderboard/models/leaderboard.dart';
 import '../logic/fixture_edit.dart';
+import '../logic/share_link.dart';
 import '../logic/knockout.dart';
 import '../logic/standings.dart';
 import '../models/tournament.dart';
@@ -10,13 +13,19 @@ import '../widgets/champion_banner.dart';
 import '../widgets/fixture_card.dart';
 import '../widgets/pin_dialog.dart';
 import '../widgets/score_dialog.dart';
+import 'tournament_edit_page.dart';
 
 class TournamentDetailPage extends StatelessWidget {
-  const TournamentDetailPage(
-      {super.key, required this.tournamentId, required this.service});
+  const TournamentDetailPage({
+    super.key,
+    required this.tournamentId,
+    required this.service,
+    this.roster = const [],
+  });
 
   final String tournamentId;
   final TournamentService service;
+  final List<Member> roster;
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +33,21 @@ class TournamentDetailPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Chi tiết giải',
             style: TextStyle(fontWeight: FontWeight.w800)),
+        actions: [
+          IconButton(
+            tooltip: 'Sao chép link giải',
+            icon: const Icon(Icons.share_outlined, size: 20),
+            onPressed: () async {
+              final link = tournamentShareLink(Uri.base, tournamentId);
+              await Clipboard.setData(ClipboardData(text: link));
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Đã sao chép link giải:\n$link')));
+              }
+            },
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: StreamBuilder<Tournament?>(
         stream: service.watchOne(tournamentId),
@@ -37,7 +61,7 @@ class TournamentDetailPage extends StatelessWidget {
                 child: Text('Giải không tồn tại',
                     style: TextStyle(color: Colors.white54)));
           }
-          return _Body(t: t, service: service);
+          return _Body(t: t, service: service, roster: roster);
         },
       ),
     );
@@ -45,10 +69,11 @@ class TournamentDetailPage extends StatelessWidget {
 }
 
 class _Body extends StatefulWidget {
-  const _Body({required this.t, required this.service});
+  const _Body({required this.t, required this.service, required this.roster});
 
   final Tournament t;
   final TournamentService service;
+  final List<Member> roster;
 
   @override
   State<_Body> createState() => _BodyState();
@@ -58,6 +83,9 @@ class _BodyState extends State<_Body> {
   // Đã nhập PIN đúng 1 lần trong phiên xem giải này -> các lần sửa sau
   // không phải gõ lại (đỡ phiền khi nhập kết quả cả buổi thi đấu).
   bool _unlocked = false;
+
+  // Bảng đang ở chế độ kéo-thả sắp xếp thứ tự trận (null = không).
+  String? _reorderingStage;
 
   Tournament get t => widget.t;
   TournamentService get service => widget.service;
@@ -114,6 +142,18 @@ class _BodyState extends State<_Body> {
     await service.save(t.copyWith(koFixtures: koFixturesAfterEdit(t, updated)));
   }
 
+  Future<void> _openEditTeams() async {
+    if (!await _ensurePin()) return;
+    if (!mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => TournamentEditPage(
+        tournament: t,
+        roster: widget.roster,
+        service: service,
+      ),
+    ));
+  }
+
   Future<void> _deleteTournament() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -165,12 +205,17 @@ class _BodyState extends State<_Body> {
               children: [
                 _lockChip(),
                 const Spacer(),
-                TextButton.icon(
+                IconButton(
+                  onPressed: _openEditTeams,
+                  tooltip: 'Sửa đội & bảng',
+                  icon: const Icon(Icons.manage_accounts_outlined,
+                      size: 20, color: Colors.white54),
+                ),
+                IconButton(
                   onPressed: _deleteTournament,
+                  tooltip: 'Xoá giải',
                   icon: const Icon(Icons.delete_outline,
-                      size: 18, color: Colors.white38),
-                  label: const Text('Xoá giải',
-                      style: TextStyle(color: Colors.white38)),
+                      size: 20, color: Colors.white38),
                 ),
               ],
             ),
@@ -198,32 +243,37 @@ class _BodyState extends State<_Body> {
 
   /// Chip trạng thái khoá: bấm để mở khoá trước (nhập PIN) hoặc khoá lại.
   Widget _lockChip() {
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: () async {
-        if (_unlocked) {
-          setState(() => _unlocked = false);
-        } else {
-          await _ensurePin();
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: _unlocked
-                ? AppColors.done.withValues(alpha: 0.6)
-                : Colors.white24,
+    return Tooltip(
+      message: _unlocked
+          ? 'Đã mở khoá: bấm vào trận để sửa kết quả. Bấm chip để khoá lại.'
+          : 'Bấm để nhập PIN, mở khoá sửa kết quả cho cả phiên.',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () async {
+          if (_unlocked) {
+            setState(() => _unlocked = false);
+          } else {
+            await _ensurePin();
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: _unlocked
+                  ? AppColors.done.withValues(alpha: 0.6)
+                  : Colors.white24,
+            ),
           ),
-        ),
-        child: Text(
-          _unlocked ? '🔓 Đã mở khoá — bấm trận để sửa' : '🔒 Nhập kết quả',
-          style: TextStyle(
-            color: _unlocked ? AppColors.done : Colors.white54,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
+          child: Text(
+            _unlocked ? '🔓 Đã mở khoá' : '🔒 Nhập kết quả',
+            style: TextStyle(
+              color: _unlocked ? AppColors.done : Colors.white54,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ),
@@ -257,28 +307,83 @@ class _BodyState extends State<_Body> {
 
   Widget _fixtures(GroupDef g) {
     final fs = t.groupFixtures.where((f) => f.stage == g.name).toList();
+    final reordering = _reorderingStage == g.name;
+
+    Widget card(Fixture f, {bool tappable = true}) => FixtureCard(
+          aName: _teamName(f.aId),
+          bName: _teamName(f.bId),
+          aMembers: _teamMembers(f.aId),
+          bMembers: _teamMembers(f.bId),
+          scoreA: f.scoreA,
+          scoreB: f.scoreB,
+          aWon: f.winnerId(t.firstTo) == f.aId && f.aId != null,
+          bWon: f.winnerId(t.firstTo) == f.bId && f.bId != null,
+          decided: f.decided(t.firstTo),
+          onTap: tappable ? () => _editGroupFixture(f) : null,
+        );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Các trận',
-            style: TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-                fontWeight: FontWeight.w700)),
+        Row(
+          children: [
+            const Text('Các trận',
+                style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700)),
+            const Spacer(),
+            if (fs.length > 1)
+              TextButton.icon(
+                onPressed: () async {
+                  if (reordering) {
+                    setState(() => _reorderingStage = null);
+                    return;
+                  }
+                  if (!await _ensurePin()) return;
+                  if (mounted) setState(() => _reorderingStage = g.name);
+                },
+                icon: Icon(reordering ? Icons.check : Icons.swap_vert,
+                    size: 16,
+                    color: reordering ? AppColors.done : AppColors.gold),
+                label: Text(reordering ? 'Xong' : 'Sắp xếp',
+                    style: TextStyle(
+                        color: reordering ? AppColors.done : AppColors.gold,
+                        fontSize: 12)),
+              ),
+          ],
+        ),
         const SizedBox(height: 6),
-        for (final f in fs)
-          FixtureCard(
-            aName: _teamName(f.aId),
-            bName: _teamName(f.bId),
-            aMembers: _teamMembers(f.aId),
-            bMembers: _teamMembers(f.bId),
-            scoreA: f.scoreA,
-            scoreB: f.scoreB,
-            aWon: f.winnerId(t.firstTo) == f.aId && f.aId != null,
-            bWon: f.winnerId(t.firstTo) == f.bId && f.bId != null,
-            decided: f.decided(t.firstTo),
-            onTap: () => _editGroupFixture(f),
-          ),
+        if (reordering)
+          // Kéo-thả để đổi thứ tự trận; mỗi lần thả lưu luôn lên Firebase.
+          ReorderableListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            buildDefaultDragHandles: false,
+            itemCount: fs.length,
+            // onReorderItem: newIndex đã được điều chỉnh sẵn sau khi bỏ item.
+            onReorderItem: (oldI, newI) {
+              service.save(t.copyWith(
+                  groupFixtures: reorderStageFixtures(
+                      t.groupFixtures, g.name, oldI, newI)));
+            },
+            itemBuilder: (_, i) => Row(
+              key: ValueKey('${g.name}_${fs[i].id}'),
+              children: [
+                ReorderableDragStartListener(
+                  index: i,
+                  child: const Padding(
+                    padding: EdgeInsets.only(right: 8, bottom: 6),
+                    child:
+                        Icon(Icons.drag_indicator, color: Colors.white38),
+                  ),
+                ),
+                Expanded(child: card(fs[i], tappable: false)),
+              ],
+            ),
+          )
+        else
+          for (final f in fs) card(f),
       ],
     );
   }

@@ -1,8 +1,11 @@
 import 'package:aoe_ranking/features/tournament/data/fun_team_names.dart';
 import 'package:aoe_ranking/features/tournament/logic/fixture_edit.dart';
+import 'package:aoe_ranking/features/tournament/logic/group_assign.dart';
 import 'package:aoe_ranking/features/tournament/logic/knockout.dart';
 import 'package:aoe_ranking/features/tournament/logic/round_robin.dart';
+import 'package:aoe_ranking/features/tournament/logic/share_link.dart';
 import 'package:aoe_ranking/features/tournament/logic/standings.dart';
+import 'package:aoe_ranking/features/tournament/logic/tournament_edit.dart';
 import 'package:aoe_ranking/features/tournament/models/tournament.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -233,6 +236,107 @@ void main() {
       expect(bangB.aId, 'b1');
       expect(bangB.scoreA, 0);
       expect(bangB.scoreB, 0);
+    });
+  });
+
+  group('distributeTeams', () {
+    test('đội chọn bảng giữ nguyên, đội tự chia cân bằng vào bảng ít nhất',
+        () {
+      // 6 đội, 2 bảng: đội 0,1 chọn bảng 0; đội 2 chọn bảng 1; còn lại tự chia.
+      final buckets = distributeTeams([0, 0, 1, null, null, null], 2);
+      expect(buckets[0], containsAll([0, 1]));
+      expect(buckets[1], contains(2));
+      // Cân bằng: mỗi bảng 3 đội.
+      expect(buckets[0].length, 3);
+      expect(buckets[1].length, 3);
+    });
+
+    test('không ai chọn -> chia đều', () {
+      final buckets = distributeTeams([null, null, null, null, null], 2);
+      expect(buckets[0].length + buckets[1].length, 5);
+      expect((buckets[0].length - buckets[1].length).abs(), 1);
+    });
+  });
+
+  group('reorderStageFixtures', () {
+    test('đổi thứ tự trong bảng, bảng khác giữ nguyên vị trí', () {
+      final all = [
+        fx('a0', 'A', 'x', 'y'),
+        fx('b0', 'B', 'p', 'q'),
+        fx('a1', 'A', 'x', 'z'),
+        fx('b1', 'B', 'p', 'r'),
+        fx('a2', 'A', 'y', 'z'),
+      ];
+      // Bảng A: [a0, a1, a2] -> chuyển a0 xuống cuối.
+      final out = reorderStageFixtures(all, 'A', 0, 2);
+      expect(out.map((f) => f.id).toList(), ['a1', 'b0', 'a2', 'b1', 'a0']);
+    });
+  });
+
+  group('applyTeamEdits', () {
+    Tournament threeGroups() => tourn(
+          teamIds: ['a1', 'a2', 'b1', 'b2', 'c1', 'c2'],
+          groups: [
+            const GroupDef(name: 'Bảng A', teamIds: ['a1', 'a2']),
+            const GroupDef(name: 'Bảng B', teamIds: ['b1', 'b2']),
+            const GroupDef(name: 'Bảng C', teamIds: ['c1', 'c2']),
+          ],
+          groupFixtures: [
+            fx('gA', 'Bảng A', 'a1', 'a2', sa: 1),
+            fx('gB', 'Bảng B', 'b1', 'b2', sa: 1),
+            fx('gC', 'Bảng C', 'c1', 'c2', sa: 1),
+          ],
+          koFixtures: [fx('ko_r0_m0', 'KO', 'a1', 'b1')],
+        );
+
+    test('chỉ đổi tên/thành viên: lịch, kết quả và KO giữ nguyên', () {
+      final t = threeGroups();
+      final newTeams = [
+        for (final team in t.teams)
+          TournTeam(
+              id: team.id,
+              name: 'Mới ${team.id}',
+              memberUuids: const ['u9'],
+              memberNames: const ['NgườiMới']),
+      ];
+      final out = applyTeamEdits(t, teams: newTeams, groups: t.groups);
+      expect(out.groupFixtures, same(t.groupFixtures));
+      expect(out.koFixtures, same(t.koFixtures));
+      expect(out.teamById('a1')!.name, 'Mới a1');
+    });
+
+    test('chuyển đội sang bảng khác: tạo lại lịch 2 bảng liên quan, '
+        'bảng còn lại giữ kết quả, KO bị xoá', () {
+      final t = threeGroups();
+      // Chuyển b1 sang Bảng A.
+      final newGroups = [
+        const GroupDef(name: 'Bảng A', teamIds: ['a1', 'a2', 'b1']),
+        const GroupDef(name: 'Bảng B', teamIds: ['b2']),
+        const GroupDef(name: 'Bảng C', teamIds: ['c1', 'c2']),
+      ];
+      expect(changedGroupStages(t, newGroups), {'Bảng A', 'Bảng B'});
+
+      final out = applyTeamEdits(t, teams: t.teams, groups: newGroups);
+      // Bảng C nguyên vẹn (giữ cả kết quả 1-0).
+      final gC = out.groupFixtures.where((f) => f.stage == 'Bảng C').toList();
+      expect(gC.single.id, 'gC');
+      expect(gC.single.scoreA, 1);
+      // Bảng A tạo lại: 3 đội -> 3 trận, tỉ số 0-0.
+      final gA = out.groupFixtures.where((f) => f.stage == 'Bảng A').toList();
+      expect(gA.length, 3);
+      expect(gA.every((f) => f.scoreA == 0 && f.scoreB == 0), isTrue);
+      // Bảng B còn 1 đội -> không có trận.
+      expect(out.groupFixtures.where((f) => f.stage == 'Bảng B'), isEmpty);
+      // KO bị xoá vì seed không còn đúng.
+      expect(out.koFixtures, isEmpty);
+    });
+  });
+
+  group('tournamentShareLink', () {
+    test('giữ origin + path, bỏ fragment và query khác, thêm ?t=', () {
+      final link = tournamentShareLink(
+          Uri.parse('https://user.github.io/aoe-ranking/?_=123#/x'), 'abc-1');
+      expect(link, 'https://user.github.io/aoe-ranking/?t=abc-1');
     });
   });
 

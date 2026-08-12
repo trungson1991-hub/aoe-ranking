@@ -2,31 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../data/aoe_constants.dart';
 import '../models/match_record.dart';
 
 // Màu 2 đội theo cách gọi của game: đội Đỏ (red_team) và đội Xanh (blue_team).
 const _redTeam = Color(0xFFF87171);
 const _blueTeam = Color(0xFF60A5FA);
-
-// Màu quân theo empires_color (AoE).
-const Map<int, Color> _slotColors = {
-  1: Color(0xFF3B82F6), // xanh dương
-  2: Color(0xFFEF4444), // đỏ
-  3: Color(0xFF22C55E), // xanh lá
-  4: Color(0xFFEAB308), // vàng
-  5: Color(0xFF06B6D4), // xanh ngọc
-  6: Color(0xFFEC4899), // hồng
-  7: Color(0xFF9CA3AF), // xám
-  8: Color(0xFFF97316), // cam
-};
-
-// Tên quân (Đế chế / AoE Rise of Rome) theo empires_type.
-const Map<int, String> _civNames = {
-  1: 'Assyrian', 2: 'Babylonian', 3: 'Choson', 4: 'Egyptian',
-  5: 'Greek', 6: 'Hittite', 7: 'Minoan', 8: 'Persian',
-  9: 'Phoenician', 10: 'Roman', 11: 'Shang', 12: 'Sumerian',
-  13: 'Yamato', 14: 'Carthaginian', 15: 'Macedonian', 16: 'Palmyran',
-};
 
 // Một chỉ số so sánh: nhãn + cách lấy giá trị + chiều tốt (thấp hơn = tốt?).
 class _Metric {
@@ -340,7 +321,7 @@ class _ComparisonTable extends StatelessWidget {
                   width: 12,
                   height: 12,
                   decoration: BoxDecoration(
-                    color: _slotColors[p.color] ?? AppColors.muted,
+                    color: slotColor(p.color),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -357,7 +338,7 @@ class _ComparisonTable extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  _civNames[p.empiresType] ?? 'Quân #${p.empiresType}',
+                  civName(p.empiresType),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style:

@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/message_view.dart';
 import '../../../core/widgets/selector_chip.dart';
+import '../../tournament/pages/tournament_detail_page.dart';
 import '../../tournament/pages/tournaments_page.dart';
+import '../../tournament/services/tournament_service.dart';
 import '../models/leaderboard.dart';
 import '../services/leaderboard_service.dart';
 import '../widgets/elo_method_sheet.dart';
 import '../widgets/member_card.dart';
+import '../widgets/top_three_card.dart';
 
 // Các chế độ xem: nhãn hiển thị + key trong dữ liệu.
 const List<({String key, String label})> _views = [
@@ -32,6 +36,8 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
   late final LeaderboardService _svc;
   late Future<Leaderboard> _future;
   String _view = kTotalKey;
+  bool _deepLinkHandled = false;
+  bool _avatarsPrecached = false;
 
   @override
   void initState() {
@@ -41,6 +47,44 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
   }
 
   void _reload() => setState(() => _future = _svc.fetch());
+
+  // Tải + giải mã sẵn toàn bộ avatar ngay khi có dữ liệu. Nếu để lúc cuộn
+  // mới decode từng ảnh khi card vào màn hình thì frame bị giật.
+  void _precacheAvatars(Leaderboard board) {
+    if (_avatarsPrecached) return;
+    _avatarsPrecached = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (final m in board.members) {
+        if (m.avatarUrl.isNotEmpty) {
+          precacheImage(NetworkImage(m.avatarUrl), context);
+        }
+      }
+    });
+  }
+
+  // Link chia sẻ dạng ?t=<id giải> -> mở thẳng trang chi tiết giải đó
+  // (sau khi bảng xếp hạng tải xong để có danh sách thành viên).
+  void _maybeOpenTournamentLink(Leaderboard board) {
+    if (_deepLinkHandled) return;
+    final tid = Uri.base.queryParameters['t'];
+    if (tid == null || tid.isEmpty) return;
+    _deepLinkHandled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => TournamentDetailPage(
+            tournamentId: tid,
+            service: TournamentService(),
+            roster: board.members,
+          ),
+        ));
+      } catch (_) {
+        // Firebase lỗi -> không mở được giải, ở lại bảng xếp hạng.
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,6 +115,8 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                     'Chưa có dữ liệu.\nChạy "node scripts/compute.mjs" hoặc chờ cập nhật theo lịch.',
               );
             }
+            _maybeOpenTournamentLink(board);
+            _precacheAvatars(board);
             return _Content(
               board: board,
               view: _view,
@@ -119,6 +165,9 @@ class _Content extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 720),
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          // Dựng + vẽ sẵn ~4 màn hình danh sách ngay khi load (list ngắn nên
+          // gần như toàn bộ): cuộn chỉ còn ghép layer, không vẽ card giữa chừng.
+          scrollCacheExtent: const ScrollCacheExtent.viewport(4),
           children: [
             _Header(board: board),
             const SizedBox(height: 14),
@@ -160,17 +209,34 @@ class _Content extends StatelessWidget {
             _ViewSelector(view: view, onChanged: onViewChanged),
             const SizedBox(height: 20),
             for (var i = 0; i < active.length; i++)
-              MemberCard(
-                member: active[i].member,
-                // Chưa có trận ở chế độ này -> không đánh số hạng.
-                rank: active[i].stat.isRated ? i + 1 : 0,
-                stat: active[i].stat,
-                accent: active[i].stat.isRated
-                    ? _rankColor(i + 1)
-                    : AppColors.muted,
-                sinceEpoch: board.startEpoch,
-                teamUuids: teamUuids,
-              ),
+              if (i < 3 && active[i].stat.isRated)
+                // Top 3: hiệu ứng ra mắt + vệt sáng + huy chương bồng bềnh.
+                // Key theo chế độ xem -> đổi tab là chạy lại hiệu ứng.
+                TopThreeCard(
+                  key: ValueKey('top3-$view-$i'),
+                  rank: i + 1,
+                  child: MemberCard(
+                    member: active[i].member,
+                    rank: i + 1,
+                    stat: active[i].stat,
+                    accent: _rankColor(i + 1),
+                    sinceEpoch: board.startEpoch,
+                    teamUuids: teamUuids,
+                    animateMedal: true,
+                  ),
+                )
+              else
+                MemberCard(
+                  member: active[i].member,
+                  // Chưa có trận ở chế độ này -> không đánh số hạng.
+                  rank: active[i].stat.isRated ? i + 1 : 0,
+                  stat: active[i].stat,
+                  accent: active[i].stat.isRated
+                      ? _rankColor(i + 1)
+                      : AppColors.muted,
+                  sinceEpoch: board.startEpoch,
+                  teamUuids: teamUuids,
+                ),
             if (inactive.isNotEmpty) ...[
               const SizedBox(height: 18),
               const Row(

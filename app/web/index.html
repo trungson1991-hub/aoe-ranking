@@ -54,10 +54,33 @@
     <div class="sp"></div>
   </div>
   <script>
-    window.addEventListener('flutter-first-frame', function () {
-      var l = document.getElementById('loading');
-      if (l) { l.style.transition = 'opacity .35s'; l.style.opacity = '0'; setTimeout(function () { l.remove(); }, 400); }
-    });
+    // Gỡ màn hình loading với 3 tầng bảo hiểm — sự kiện flutter-first-frame
+    // không bắn ổn định trên Safari iOS khiến spinner nổi đè mãi trên app:
+    // 1) sự kiện flutter-first-frame (chuẩn, chạy tốt trên Chrome/Edge);
+    // 2) dò thấy phần tử giao diện Flutter xuất hiện (mọi trình duyệt);
+    // 3) timeout cứng 8s — dù thế nào splash cũng phải biến mất.
+    (function () {
+      var hidden = false;
+      function hideLoading() {
+        if (hidden) return;
+        hidden = true;
+        var l = document.getElementById('loading');
+        if (l) {
+          l.style.transition = 'opacity .35s';
+          l.style.opacity = '0';
+          setTimeout(function () { l.remove(); }, 400);
+        }
+      }
+      window.addEventListener('flutter-first-frame', hideLoading);
+      var poll = setInterval(function () {
+        if (document.querySelector('flutter-view, flt-glass-pane')) {
+          clearInterval(poll);
+          // chờ thêm 1 nhịp cho khung đầu tiên kịp vẽ
+          setTimeout(hideLoading, 350);
+        }
+      }, 200);
+      setTimeout(hideLoading, 8000);
+    })();
   </script>
 
   <script>

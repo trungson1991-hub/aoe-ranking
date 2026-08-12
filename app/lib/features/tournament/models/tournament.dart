@@ -102,6 +102,11 @@ class GroupDef {
 const kStructureRoundRobin = 'round_robin'; // 1 bảng vòng tròn
 const kStructureGroupsKnockout = 'groups_knockout'; // nhiều bảng + loại trực tiếp
 
+// Trạng thái giải. Giải cũ (chưa có field) mặc định là đang diễn ra.
+const kStatusActive = 'active'; // đang diễn ra — được nhập/sửa kết quả
+const kStatusFinished = 'finished'; // đã kết thúc — chốt kết quả, khoá sửa
+const kStatusCancelled = 'cancelled'; // đã huỷ — không tính kết quả, khoá sửa
+
 class Tournament {
   final String id;
   final String name;
@@ -111,6 +116,7 @@ class Tournament {
   final String structure;
   final int advancePerGroup; // số đội đi tiếp mỗi bảng (groups_knockout)
   final int createdAt; // epoch giây
+  final String status; // kStatusActive | kStatusFinished | kStatusCancelled
   final List<TournTeam> teams;
   final List<GroupDef> groups;
   final List<Fixture> groupFixtures; // vòng bảng / vòng tròn
@@ -125,11 +131,16 @@ class Tournament {
     required this.structure,
     required this.advancePerGroup,
     required this.createdAt,
+    this.status = kStatusActive,
     required this.teams,
     required this.groups,
     required this.groupFixtures,
     required this.koFixtures,
   });
+
+  bool get isActive => status == kStatusActive;
+  bool get isFinished => status == kStatusFinished;
+  bool get isCancelled => status == kStatusCancelled;
 
   TournTeam? teamById(String? id) {
     if (id == null) return null;
@@ -141,6 +152,7 @@ class Tournament {
 
   Tournament copyWith({
     String? name,
+    String? status,
     List<TournTeam>? teams,
     List<GroupDef>? groups,
     List<Fixture>? groupFixtures,
@@ -155,6 +167,7 @@ class Tournament {
         structure: structure,
         advancePerGroup: advancePerGroup,
         createdAt: createdAt,
+        status: status ?? this.status,
         teams: teams ?? this.teams,
         groups: groups ?? this.groups,
         groupFixtures: groupFixtures ?? this.groupFixtures,
@@ -169,6 +182,7 @@ class Tournament {
         'structure': structure,
         'advance_per_group': advancePerGroup,
         'created_at': createdAt,
+        'status': status,
         'teams': teams.map((e) => e.toMap()).toList(),
         'groups': groups.map((e) => e.toMap()).toList(),
         'group_fixtures': groupFixtures.map((e) => e.toMap()).toList(),
@@ -192,6 +206,7 @@ class Tournament {
           : 1,
       createdAt:
           (m['created_at'] is num) ? (m['created_at'] as num).toInt() : 0,
+      status: (m['status'] ?? kStatusActive) as String,
       teams: list('teams', TournTeam.fromMap),
       groups: list('groups', GroupDef.fromMap),
       groupFixtures: list('group_fixtures', Fixture.fromMap),

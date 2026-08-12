@@ -50,7 +50,13 @@ class _TournamentsPageState extends State<TournamentsPage> {
             return MessageView(
                 icon: Icons.cloud_off, text: 'Lỗi kết nối:\n${snap.error}');
           }
-          final list = snap.data ?? const [];
+          // Giải đang diễn ra lên đầu, trong mỗi nhóm thì mới nhất trước.
+          final list = [...(snap.data ?? const <Tournament>[])]..sort((a, b) {
+              final ra = a.isActive ? 0 : 1;
+              final rb = b.isActive ? 0 : 1;
+              if (ra != rb) return ra - rb;
+              return b.createdAt - a.createdAt;
+            });
           if (list.isEmpty) {
             return const MessageView(
                 icon: Icons.emoji_events_outlined,
@@ -93,9 +99,18 @@ class _TournamentTile extends StatelessWidget {
         border: Border.all(color: Colors.white12),
       ),
       child: ListTile(
-        title: Text(t.name,
-            style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.w800)),
+        title: Row(
+          children: [
+            Flexible(
+              child: Text(t.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w800)),
+            ),
+            const SizedBox(width: 8),
+            _StatusChip(t: t),
+          ],
+        ),
         subtitle: Text(
           '${t.format} · chạm ${t.firstTo} · ${t.teams.length} đội · $date',
           style: const TextStyle(color: Colors.white54, fontSize: 12),
@@ -106,6 +121,33 @@ class _TournamentTile extends StatelessWidget {
               tournamentId: t.id, service: service, roster: roster),
         )),
       ),
+    );
+  }
+}
+
+/// Nhãn trạng thái giải trên danh sách.
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.t});
+
+  final Tournament t;
+
+  @override
+  Widget build(BuildContext context) {
+    final (String label, Color color) = t.isActive
+        ? ('Đang diễn ra', AppColors.done)
+        : t.isFinished
+            ? ('Đã kết thúc', AppColors.gold)
+            : ('Đã huỷ', Colors.white38);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Text(label,
+          style: TextStyle(
+              color: color, fontSize: 10, fontWeight: FontWeight.w700)),
     );
   }
 }

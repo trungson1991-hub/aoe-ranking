@@ -332,6 +332,28 @@ void main() {
     });
   });
 
+  group('Tournament status', () {
+    test('giải cũ chưa có field status -> mặc định đang diễn ra', () {
+      final t = Tournament.fromDoc('x', {'name': 'Giải cũ'});
+      expect(t.isActive, isTrue);
+      expect(t.isFinished, isFalse);
+      expect(t.isCancelled, isFalse);
+    });
+
+    test('copyWith đổi trạng thái và round-trip qua toMap/fromDoc', () {
+      final t = tourn(
+        teamIds: ['a', 'b'],
+        groups: [const GroupDef(name: 'A', teamIds: ['a', 'b'])],
+        groupFixtures: [fx('g', 'A', 'a', 'b', sa: 1)],
+      ).copyWith(status: kStatusFinished);
+      expect(t.isFinished, isTrue);
+      final parsed = Tournament.fromDoc('x', t.toMap());
+      expect(parsed.isFinished, isTrue);
+      // Mở lại giải.
+      expect(parsed.copyWith(status: kStatusActive).isActive, isTrue);
+    });
+  });
+
   group('tournamentShareLink', () {
     test('giữ origin + path, bỏ fragment và query khác, thêm ?t=', () {
       final link = tournamentShareLink(

@@ -104,6 +104,7 @@ class _BodyState extends State<_Body> {
   // ---- Nhập / sửa tỉ số ----
 
   Future<void> _editGroupFixture(Fixture f) async {
+    if (!t.isActive) return;
     if (!await _ensurePin()) return;
     if (!mounted) return;
     final res = await showScoreDialog(
@@ -123,6 +124,7 @@ class _BodyState extends State<_Body> {
   }
 
   Future<void> _editKoFixture(KoSlot s) async {
+    if (!t.isActive) return;
     if (s.aId == null || s.bId == null) return;
     if (!await _ensurePin()) return;
     if (!mounted) return;
@@ -143,6 +145,7 @@ class _BodyState extends State<_Body> {
   }
 
   Future<void> _openEditTeams() async {
+    if (!t.isActive) return;
     if (!await _ensurePin()) return;
     if (!mounted) return;
     await Navigator.of(context).push(MaterialPageRoute(
@@ -152,6 +155,36 @@ class _BodyState extends State<_Body> {
         service: service,
       ),
     ));
+  }
+
+  // Đổi trạng thái giải (kết thúc / huỷ / mở lại), có xác nhận + PIN.
+  Future<void> _setStatus(
+    String status, {
+    String? confirmTitle,
+    String? confirmBody,
+  }) async {
+    if (confirmTitle != null) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(confirmTitle, style: const TextStyle(color: Colors.white)),
+          content:
+              Text(confirmBody ?? '', style: const TextStyle(color: Colors.white70)),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Huỷ')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Đồng ý',
+                    style: TextStyle(color: AppColors.gold))),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+    }
+    if (!await _ensurePin()) return;
+    await service.save(t.copyWith(status: status));
   }
 
   Future<void> _deleteTournament() async {
@@ -203,24 +236,14 @@ class _BodyState extends State<_Body> {
             const SizedBox(height: 8),
             Row(
               children: [
-                _lockChip(),
+                if (t.isActive) _lockChip(),
                 const Spacer(),
-                IconButton(
-                  onPressed: _openEditTeams,
-                  tooltip: 'Sửa đội & bảng',
-                  icon: const Icon(Icons.manage_accounts_outlined,
-                      size: 20, color: Colors.white54),
-                ),
-                IconButton(
-                  onPressed: _deleteTournament,
-                  tooltip: 'Xoá giải',
-                  icon: const Icon(Icons.delete_outline,
-                      size: 20, color: Colors.white38),
-                ),
+                _actionsMenu(),
               ],
             ),
             const SizedBox(height: 8),
-            ..._championSection(),
+            ..._statusBanner(),
+            if (!t.isCancelled) ..._championSection(),
             for (final g in t.groups) ...[
               _Standings(
                 t: t,
@@ -239,6 +262,109 @@ class _BodyState extends State<_Body> {
         ),
       ),
     );
+  }
+
+  /// Menu hành động (⋮): sửa đội, kết thúc, huỷ, mở lại, xoá — tuỳ trạng thái.
+  Widget _actionsMenu() {
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert, color: Colors.white54),
+      color: AppColors.surfaceLight,
+      onSelected: (v) {
+        switch (v) {
+          case 'edit':
+            _openEditTeams();
+          case 'finish':
+            _setStatus(
+              kStatusFinished,
+              confirmTitle: 'Kết thúc giải?',
+              confirmBody: 'Chốt kết quả hiện tại và khoá nhập/sửa tỉ số. '
+                  'Có thể "Mở lại giải" nếu cần.',
+            );
+          case 'cancel':
+            _setStatus(
+              kStatusCancelled,
+              confirmTitle: 'Huỷ giải?',
+              confirmBody: 'Giải bị đánh dấu ĐÃ HUỶ, không tính kết quả '
+                  'và khoá nhập/sửa tỉ số. Có thể "Mở lại giải" nếu cần.',
+            );
+          case 'reopen':
+            _setStatus(kStatusActive);
+          case 'delete':
+            _deleteTournament();
+        }
+      },
+      itemBuilder: (_) => [
+        if (t.isActive) ...[
+          const PopupMenuItem(
+            value: 'edit',
+            child: Text('👥 Sửa đội & bảng',
+                style: TextStyle(color: Colors.white, fontSize: 14)),
+          ),
+          const PopupMenuItem(
+            value: 'finish',
+            child: Text('🏁 Kết thúc giải',
+                style: TextStyle(color: Colors.white, fontSize: 14)),
+          ),
+          const PopupMenuItem(
+            value: 'cancel',
+            child: Text('🚫 Huỷ giải',
+                style: TextStyle(color: Colors.white, fontSize: 14)),
+          ),
+        ] else
+          const PopupMenuItem(
+            value: 'reopen',
+            child: Text('🔓 Mở lại giải',
+                style: TextStyle(color: Colors.white, fontSize: 14)),
+          ),
+        const PopupMenuItem(
+          value: 'delete',
+          child: Text('🗑️ Xoá giải',
+              style: TextStyle(color: AppColors.loss, fontSize: 14)),
+        ),
+      ],
+    );
+  }
+
+  /// Banner trạng thái khi giải đã kết thúc / đã huỷ.
+  List<Widget> _statusBanner() {
+    if (t.isActive) return const [];
+    final finished = t.isFinished;
+    return [
+      Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: finished
+                ? AppColors.gold.withValues(alpha: 0.5)
+                : Colors.white24,
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                finished
+                    ? '🏁 Giải đã kết thúc — kết quả đã chốt'
+                    : '🚫 Giải đã huỷ — không tính kết quả',
+                style: TextStyle(
+                  color: finished ? AppColors.gold : Colors.white54,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => _setStatus(kStatusActive),
+              child: const Text('Mở lại',
+                  style: TextStyle(color: Colors.white70, fontSize: 12)),
+            ),
+          ],
+        ),
+      ),
+    ];
   }
 
   /// Chip trạng thái khoá: bấm để mở khoá trước (nhập PIN) hoặc khoá lại.
@@ -319,7 +445,8 @@ class _BodyState extends State<_Body> {
           aWon: f.winnerId(t.firstTo) == f.aId && f.aId != null,
           bWon: f.winnerId(t.firstTo) == f.bId && f.bId != null,
           decided: f.decided(t.firstTo),
-          onTap: tappable ? () => _editGroupFixture(f) : null,
+          // Giải đã kết thúc/huỷ -> chỉ xem, không sửa.
+          onTap: tappable && t.isActive ? () => _editGroupFixture(f) : null,
         );
 
     return Column(
@@ -333,7 +460,7 @@ class _BodyState extends State<_Body> {
                     fontSize: 13,
                     fontWeight: FontWeight.w700)),
             const Spacer(),
-            if (fs.length > 1)
+            if (fs.length > 1 && t.isActive)
               TextButton.icon(
                 onPressed: () async {
                   if (reordering) {
@@ -354,7 +481,7 @@ class _BodyState extends State<_Body> {
           ],
         ),
         const SizedBox(height: 6),
-        if (reordering)
+        if (reordering && t.isActive)
           // Kéo-thả để đổi thứ tự trận; mỗi lần thả lưu luôn lên Firebase.
           ReorderableListView.builder(
             shrinkWrap: true,
@@ -391,6 +518,8 @@ class _BodyState extends State<_Body> {
   // ---- Loại trực tiếp ----
 
   Widget _koSection() {
+    // Giải đã đóng mà chưa tạo nhánh KO -> không hiện gợi ý/nút tạo nữa.
+    if (!t.isActive && t.koFixtures.isEmpty) return const SizedBox.shrink();
     if (!groupStageDone(t)) {
       return Container(
         padding: const EdgeInsets.all(14),
@@ -447,7 +576,7 @@ class _BodyState extends State<_Body> {
               aWon: s.winnerId != null && s.winnerId == s.aId,
               bWon: s.winnerId != null && s.winnerId == s.bId,
               decided: s.winnerId != null,
-              onTap: (s.aId != null && s.bId != null)
+              onTap: (t.isActive && s.aId != null && s.bId != null)
                   ? () => _editKoFixture(s)
                   : null,
             ),

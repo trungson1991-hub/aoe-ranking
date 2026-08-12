@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -28,7 +30,7 @@ class MemberCard extends StatelessWidget {
   final int sinceEpoch;
   final Set<String> teamUuids;
 
-  /// Huy chương bồng bềnh nhẹ (chỉ dùng cho top 3 trên bảng chính).
+  /// Huy chương đung đưa tắt dần khi vào trang (chỉ dùng cho top 3).
   final bool animateMedal;
 
   bool get _isTop3 => rank >= 1 && rank <= 3;
@@ -211,8 +213,12 @@ class MemberCard extends StatelessWidget {
   }
 }
 
-/// Huy chương bồng bềnh nhẹ liên tục. RepaintBoundary cô lập nên mỗi frame
-/// chỉ vẽ lại vùng ~30px của huy chương, không đụng tới phần còn lại.
+/// Huy chương đung đưa như treo trên dây, tắt dần rồi ĐỨNG YÊN hẳn.
+///
+/// Dùng phép XOAY thay vì tịnh tiến: tịnh tiến biên độ nhỏ khiến glyph
+/// "hít" vào lưới pixel, nhìn thành nhảy từng nấc; xoay thì mỗi frame
+/// glyph được resample lại nên chuyển động mượt. RepaintBoundary cô lập
+/// vùng vẽ ~34px; đung đưa xong widget trở về Text tĩnh 100%.
 class _FloatingMedal extends StatefulWidget {
   const _FloatingMedal({required this.medal});
 
@@ -226,11 +232,23 @@ class _FloatingMedalState extends State<_FloatingMedal>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1600),
-  )..repeat(reverse: true);
+    duration: const Duration(milliseconds: 3200),
+  );
+  bool _done = false;
 
-  late final Animation<double> _dy = Tween(begin: 2.0, end: -2.0)
-      .animate(CurvedAnimation(parent: _c, curve: Curves.easeInOut));
+  static const _text =
+      TextStyle(fontSize: 24); // kèm textAlign center ở dưới
+
+  @override
+  void initState() {
+    super.initState();
+    _c.forward();
+    _c.addStatusListener((s) {
+      if (s == AnimationStatus.completed && mounted) {
+        setState(() => _done = true); // về tĩnh hoàn toàn
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -238,15 +256,24 @@ class _FloatingMedalState extends State<_FloatingMedal>
     super.dispose();
   }
 
+  // Con lắc tắt dần: 3 nhịp, biên độ ~16° giảm dần về đúng 0 ở cuối.
+  double _angle(double t) =>
+      0.28 * (1 - t) * (1 - t) * math.sin(2 * math.pi * 3 * t);
+
   @override
   Widget build(BuildContext context) {
+    final medal =
+        Text(widget.medal, style: _text, textAlign: TextAlign.center);
+    if (_done) return medal;
     return RepaintBoundary(
       child: AnimatedBuilder(
-        animation: _dy,
-        builder: (_, child) =>
-            Transform.translate(offset: Offset(0, _dy.value), child: child),
-        child: Text(widget.medal,
-            style: const TextStyle(fontSize: 24), textAlign: TextAlign.center),
+        animation: _c,
+        builder: (_, child) => Transform.rotate(
+          angle: _angle(_c.value),
+          alignment: Alignment.topCenter, // xoay quanh "dây treo"
+          child: child,
+        ),
+        child: medal,
       ),
     );
   }

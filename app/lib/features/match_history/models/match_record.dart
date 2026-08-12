@@ -122,10 +122,16 @@ class MatchRecord {
           ? redCount
           : null;
 
-  List<String> get opponentNames {
+  List<String> get opponentNames => _names(oppTeam);
+
+  /// Đồng đội (không tính chính mình).
+  List<String> get teammateNames =>
+      _names(myTeam.where((p) => p.uuid != viewerUuid));
+
+  List<String> _names(Iterable<PlayerStat> side) {
     final seen = <String>{};
     final out = <String>[];
-    for (final p in oppTeam) {
+    for (final p in side) {
       if (seen.add(p.label)) out.add(p.label);
     }
     return out;

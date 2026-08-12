@@ -1,4 +1,5 @@
-// Model giải đấu (lưu trên Firestore, mỗi giải = 1 document trong collection `tournaments`).
+// Model giải đấu (lưu trên Firebase RTDB, mỗi giải = 1 node trong `tournaments`).
+import 'dart:math';
 
 // Một đội trong giải (chia từ thành viên team).
 class TournTeam {
@@ -191,6 +192,159 @@ class Tournament {
       koFixtures: list('ko_fixtures', Fixture.fromMap),
     );
   }
+}
+
+// ---- Loại trực tiếp (knockout) ----
+
+bool groupStageDone(Tournament t) =>
+    t.groupFixtures.isNotEmpty &&
+    t.groupFixtures.every((f) => f.decided(t.firstTo));
+
+// Thứ tự seed các đội đi tiếp: tất cả hạng 1 (theo thứ tự bảng), rồi hạng 2...
+List<String> koSeeds(Tournament t) {
+  final seeds = <String>[];
+  for (var rank = 0; rank < t.advancePerGroup; rank++) {
+    for (final g in t.groups) {
+      final st = standingsFor(t, g.teamIds, t.groupFixtures);
+      if (rank < st.length) seeds.add(st[rank].team.id);
+    }
+  }
+  return seeds;
+}
+
+int _nextPow2(int n) {
+  var p = 1;
+  while (p < n) {
+    p *= 2;
+  }
+  return p < 2 ? 2 : p;
+}
+
+// Sinh toàn bộ nhánh KO: vòng 0 seed theo cặp (i vs n-1-i, bye ở cuối);
+// các vòng sau để trống (đội suy ra từ đội thắng vòng trước khi hiển thị).
+List<Fixture> buildKnockout(Tournament t) {
+  final seeds = koSeeds(t);
+  if (seeds.length < 2) return const [];
+  final n = _nextPow2(seeds.length);
+  final padded = <String?>[...seeds, ...List<String?>.filled(n - seeds.length, null)];
+  final out = <Fixture>[];
+  final r0 = n ~/ 2;
+  for (var i = 0; i < r0; i++) {
+    out.add(Fixture(
+      id: 'ko_r0_m$i',
+      stage: 'KO',
+      aId: padded[i],
+      bId: padded[n - 1 - i],
+    ));
+  }
+  var prev = r0;
+  var r = 1;
+  while (prev > 1) {
+    final cnt = prev ~/ 2;
+    for (var j = 0; j < cnt; j++) {
+      out.add(Fixture(id: 'ko_r${r}_m$j', stage: 'KO', aId: null, bId: null));
+    }
+    prev = cnt;
+    r++;
+  }
+  return out;
+}
+
+// Đội thắng 1 cặp KO (có xét bye: 1 bên trống -> bên kia thắng).
+String? koWinner(Fixture f, int firstTo, String? aId, String? bId) {
+  if (aId != null && bId == null) return aId;
+  if (bId != null && aId == null) return bId;
+  if (aId == null || bId == null) return null;
+  if (f.scoreA >= firstTo) return aId;
+  if (f.scoreB >= firstTo) return bId;
+  return null;
+}
+
+class KoSlot {
+  final int round;
+  final int match;
+  final String? aId;
+  final String? bId;
+  final Fixture fixture;
+  final String? winnerId;
+  KoSlot(
+      {required this.round,
+      required this.match,
+      required this.aId,
+      required this.bId,
+      required this.fixture,
+      required this.winnerId});
+}
+
+(int, int)? _parseKoId(String id) {
+  final m = RegExp(r'^ko_r(\d+)_m(\d+)$').firstMatch(id);
+  if (m == null) return null;
+  return (int.parse(m.group(1)!), int.parse(m.group(2)!));
+}
+
+// Giải nhánh KO thành danh sách vòng, mỗi vòng là danh sách KoSlot (đã suy ra đội).
+List<List<KoSlot>> resolveKo(Tournament t) {
+  if (t.koFixtures.isEmpty) return const [];
+  final byId = {for (final f in t.koFixtures) f.id: f};
+  final roundSize = <int, int>{};
+  for (final f in t.koFixtures) {
+    final p = _parseKoId(f.id);
+    if (p != null) {
+      roundSize[p.$1] = max(roundSize[p.$1] ?? 0, p.$2 + 1);
+    }
+  }
+  if (roundSize.isEmpty) return const [];
+  final maxRound = roundSize.keys.reduce(max);
+  final winners = <int, Map<int, String?>>{};
+  final out = <List<KoSlot>>[];
+  for (var r = 0; r <= maxRound; r++) {
+    final cnt = roundSize[r] ?? 0;
+    final slots = <KoSlot>[];
+    for (var m = 0; m < cnt; m++) {
+      final f = byId['ko_r${r}_m$m'];
+      if (f == null) continue;
+      String? aId;
+      String? bId;
+      if (r == 0) {
+        aId = f.aId;
+        bId = f.bId;
+      } else {
+        aId = winners[r - 1]?[2 * m];
+        bId = winners[r - 1]?[2 * m + 1];
+      }
+      final w = koWinner(f, t.firstTo, aId, bId);
+      winners.putIfAbsent(r, () => {})[m] = w;
+      slots.add(KoSlot(
+          round: r, match: m, aId: aId, bId: bId, fixture: f, winnerId: w));
+    }
+    out.add(slots);
+  }
+  return out;
+}
+
+// Tên vòng theo số cặp đấu trong vòng.
+String koRoundName(int matchesInRound) {
+  switch (matchesInRound) {
+    case 1:
+      return 'Chung kết';
+    case 2:
+      return 'Bán kết';
+    case 4:
+      return 'Tứ kết';
+    case 8:
+      return 'Vòng 1/8';
+    default:
+      return 'Vòng ${matchesInRound * 2} đội';
+  }
+}
+
+// Nhà vô địch (đội thắng trận chung kết), null nếu chưa xong.
+String? koChampionId(Tournament t) {
+  final rounds = resolveKo(t);
+  if (rounds.isEmpty) return null;
+  final finalRound = rounds.last;
+  if (finalRound.length != 1) return null;
+  return finalRound.first.winnerId;
 }
 
 // Sinh lịch vòng tròn (mọi cặp gặp nhau 1 lần) cho 1 nhóm đội.

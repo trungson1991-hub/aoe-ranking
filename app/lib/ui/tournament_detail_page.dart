@@ -128,13 +128,15 @@ class _Body extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            if (_allDone) _champion(),
+            if (t.structure == kStructureRoundRobin && _allDone) _champion(),
+            if (t.structure == kStructureGroupsKnockout) _championKo(),
             for (final g in t.groups) ...[
               _standings(g),
               const SizedBox(height: 12),
               _fixtures(context, g),
               const SizedBox(height: 20),
             ],
+            if (t.structure == kStructureGroupsKnockout) _koSection(context),
           ],
         ),
       ),
@@ -173,6 +175,196 @@ class _Body extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // ---- Loại trực tiếp ----
+
+  Widget _championKo() {
+    final champId = koChampionId(t);
+    if (champId == null) return const SizedBox.shrink();
+    final rounds = resolveKo(t);
+    final fin = rounds.last.first;
+    final loserId = champId == fin.aId ? fin.bId : fin.aId;
+    final champ = t.teamById(champId)?.name ?? '?';
+    final runner = t.teamById(loserId)?.name ?? '-';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+            colors: [Color(0xFFFBBF24), Color(0xFFB45309)]),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          const Text('🏆 KẾT QUẢ CHUNG CUỘC',
+              style: TextStyle(
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14)),
+          const SizedBox(height: 8),
+          Text('🥇 Vô địch: $champ',
+              style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900)),
+          Text('🥈 Á quân: $runner',
+              style: const TextStyle(
+                  color: Colors.black87, fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+
+  Widget _koSection(BuildContext context) {
+    if (!groupStageDone(t)) {
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Text(
+          'Hoàn tất tất cả trận vòng bảng để mở nhánh loại trực tiếp.',
+          style: TextStyle(color: Colors.white54),
+        ),
+      );
+    }
+    if (t.koFixtures.isEmpty) {
+      return Center(
+        child: FilledButton.icon(
+          style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFFBBF24),
+              foregroundColor: Colors.black),
+          icon: const Icon(Icons.account_tree),
+          label: const Text('Tạo nhánh loại trực tiếp',
+              style: TextStyle(fontWeight: FontWeight.w800)),
+          onPressed: () async {
+            if (!await askPin(context, t.pin)) return;
+            await service.save(t.copyWith(koFixtures: buildKnockout(t)));
+          },
+        ),
+      );
+    }
+    final rounds = resolveKo(t);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Loại trực tiếp',
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w900)),
+        const SizedBox(height: 8),
+        for (final round in rounds) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 8, bottom: 4),
+            child: Text(koRoundName(round.length),
+                style: const TextStyle(
+                    color: Color(0xFFFBBF24), fontWeight: FontWeight.w800)),
+          ),
+          for (final s in round) _koCard(context, s),
+        ],
+      ],
+    );
+  }
+
+  Widget _koCard(BuildContext context, KoSlot s) {
+    final aName = t.teamById(s.aId)?.name ?? '?';
+    final bName = t.teamById(s.bId)?.name ?? '?';
+    final ready = s.aId != null && s.bId != null;
+    final win = s.winnerId;
+    return InkWell(
+      onTap: ready ? () => _editKo(context, s) : null,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+              color: win != null
+                  ? const Color(0xFF34D399).withOpacity(0.4)
+                  : Colors.white12),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(aName,
+                  textAlign: TextAlign.right,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: win == s.aId ? const Color(0xFF86EFAC) : Colors.white,
+                      fontWeight: FontWeight.w700)),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text('${s.fixture.scoreA} - ${s.fixture.scoreB}',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900)),
+            ),
+            Expanded(
+              child: Text(bName,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: win == s.bId ? const Color(0xFF86EFAC) : Colors.white,
+                      fontWeight: FontWeight.w700)),
+            ),
+            const SizedBox(width: 6),
+            Icon(ready ? Icons.edit : Icons.hourglass_empty,
+                size: 14, color: Colors.white24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editKo(BuildContext context, KoSlot s) async {
+    if (s.aId == null || s.bId == null) return;
+    if (!await askPin(context, t.pin)) return;
+    if (!context.mounted) return;
+    var a = s.fixture.scoreA;
+    var b = s.fixture.scoreB;
+    final res = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          backgroundColor: const Color(0xFF1E293B),
+          title: Text(
+            '${t.teamById(s.aId)?.name ?? '?'}  vs  ${t.teamById(s.bId)?.name ?? '?'}',
+            style: const TextStyle(color: Colors.white, fontSize: 15),
+          ),
+          content: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _stepper(a, (v) => setLocal(() => a = v), t.firstTo),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: Text('-',
+                    style: TextStyle(color: Colors.white, fontSize: 20)),
+              ),
+              _stepper(b, (v) => setLocal(() => b = v), t.firstTo),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Huỷ')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Lưu')),
+          ],
+        ),
+      ),
+    );
+    if (res == true) {
+      final updated = s.fixture.copyWith(scoreA: a, scoreB: b);
+      final list =
+          t.koFixtures.map((x) => x.id == s.fixture.id ? updated : x).toList();
+      await service.save(t.copyWith(koFixtures: list));
+    }
   }
 
   Widget _standings(GroupDef g) {

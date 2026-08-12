@@ -25,6 +25,9 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
   final _pin = TextEditingController();
   String _format = '1v1';
   int _firstTo = 1;
+  String _structure = kStructureRoundRobin;
+  int _numGroups = 2;
+  int _advance = 1;
   final List<_TeamDraft> _teams = [_TeamDraft(), _TeamDraft()];
   bool _saving = false;
 
@@ -115,6 +118,10 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
         if (!allUuids.add(u)) return 'Một người bị xếp vào 2 đội';
       }
     }
+    if (_structure == kStructureGroupsKnockout &&
+        _teams.length < _numGroups * 2) {
+      return 'Cần ít nhất ${_numGroups * 2} đội cho $_numGroups bảng';
+    }
     return null;
   }
 
@@ -139,18 +146,40 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
       }
       final teamIds = teams.map((e) => e.id).toList();
       final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+      List<GroupDef> groups;
+      List<Fixture> gfx;
+      var advance = 1;
+      if (_structure == kStructureGroupsKnockout) {
+        advance = _advance;
+        final buckets = List.generate(_numGroups, (_) => <String>[]);
+        for (var i = 0; i < teamIds.length; i++) {
+          buckets[i % _numGroups].add(teamIds[i]); // chia đều theo vòng
+        }
+        groups = [];
+        gfx = [];
+        for (var i = 0; i < _numGroups; i++) {
+          final name = 'Bảng ${String.fromCharCode(65 + i)}';
+          groups.add(GroupDef(name: name, teamIds: buckets[i]));
+          gfx.addAll(generateRoundRobin(buckets[i], stage: name));
+        }
+      } else {
+        groups = [GroupDef(name: 'Vòng tròn', teamIds: teamIds)];
+        gfx = generateRoundRobin(teamIds, stage: 'Vòng tròn');
+      }
+
       await widget.service.create((id) => Tournament(
             id: id,
             name: _name.text.trim(),
             pin: _pin.text.trim(),
             format: _format,
             firstTo: _firstTo,
-            structure: kStructureRoundRobin,
-            advancePerGroup: 1,
+            structure: _structure,
+            advancePerGroup: advance,
             createdAt: now,
             teams: teams,
-            groups: [GroupDef(name: 'Vòng tròn', teamIds: teamIds)],
-            groupFixtures: generateRoundRobin(teamIds, stage: 'Vòng tròn'),
+            groups: groups,
+            groupFixtures: gfx,
             koFixtures: const [],
           ));
       if (mounted) Navigator.of(context).pop();
@@ -220,6 +249,42 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
                   ),
                 ],
               ),
+              const SizedBox(height: 14),
+              _dropdown<String>(
+                label: 'Thể thức thi đấu',
+                value: _structure,
+                items: const [kStructureRoundRobin, kStructureGroupsKnockout],
+                itemLabel: (v) => v == kStructureRoundRobin
+                    ? '1 bảng vòng tròn'
+                    : 'Nhiều bảng + loại trực tiếp',
+                onChanged: (v) => setState(() => _structure = v!),
+              ),
+              if (_structure == kStructureGroupsKnockout) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _dropdown<int>(
+                        label: 'Số bảng',
+                        value: _numGroups,
+                        items: const [2, 3, 4],
+                        itemLabel: (v) => '$v bảng',
+                        onChanged: (v) => setState(() => _numGroups = v!),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _dropdown<int>(
+                        label: 'Đi tiếp mỗi bảng',
+                        value: _advance,
+                        items: const [1, 2],
+                        itemLabel: (v) => '$v đội',
+                        onChanged: (v) => setState(() => _advance = v!),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 18),
               Row(
                 children: [
@@ -254,7 +319,7 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'GĐ1: 1 bảng vòng tròn tính điểm. (Nhiều bảng + loại trực tiếp sẽ bổ sung sau.)',
+                'Nhiều bảng: các đội chia đều vào bảng, đá vòng tròn; xong vòng bảng thì mở nhánh loại trực tiếp.',
                 style: TextStyle(color: Colors.white38, fontSize: 12),
                 textAlign: TextAlign.center,
               ),

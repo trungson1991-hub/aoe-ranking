@@ -270,6 +270,8 @@ class _BodyState extends State<_Body> {
           FixtureCard(
             aName: _teamName(f.aId),
             bName: _teamName(f.bId),
+            aMembers: _teamMembers(f.aId),
+            bMembers: _teamMembers(f.bId),
             scoreA: f.scoreA,
             scoreB: f.scoreB,
             aWon: f.winnerId(t.firstTo) == f.aId && f.aId != null,
@@ -333,6 +335,8 @@ class _BodyState extends State<_Body> {
             FixtureCard(
               aName: s.aId != null ? _teamName(s.aId) : (s.isBye ? '—' : '?'),
               bName: s.bId != null ? _teamName(s.bId) : (s.isBye ? '—' : '?'),
+              aMembers: _teamMembers(s.aId),
+              bMembers: _teamMembers(s.bId),
               scoreA: s.fixture.scoreA,
               scoreB: s.fixture.scoreB,
               aWon: s.winnerId != null && s.winnerId == s.aId,
@@ -426,11 +430,22 @@ class _Standings extends StatelessWidget {
                                 : Colors.white70,
                             fontWeight: FontWeight.w700))),
                 Expanded(
-                    child: Text(rows[i].team.name,
+                    child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(rows[i].team.name,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             color: Colors.white,
-                            fontWeight: FontWeight.w600))),
+                            fontWeight: FontWeight.w600)),
+                    if (rows[i].team.memberNames.isNotEmpty)
+                      Text(rows[i].team.memberNames.join(', '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: Colors.white38, fontSize: 10)),
+                  ],
+                )),
                 SizedBox(
                     width: 34,
                     child: Text('${rows[i].played}',

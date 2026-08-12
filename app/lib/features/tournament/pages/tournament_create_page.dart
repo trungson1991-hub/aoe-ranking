@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../leaderboard/models/leaderboard.dart';
+import '../data/fun_team_names.dart';
 import '../logic/round_robin.dart';
 import '../models/tournament.dart';
 import '../services/tournament_service.dart';
 
 class _TeamDraft {
+  _TeamDraft(String initialName) {
+    name.text = initialName;
+  }
+
   final TextEditingController name = TextEditingController();
   List<String> memberUuids = [];
 
@@ -32,10 +37,21 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
   String _structure = kStructureRoundRobin;
   int _numGroups = 2;
   int _advance = 1;
-  final List<_TeamDraft> _teams = [_TeamDraft(), _TeamDraft()];
+  final List<_TeamDraft> _teams = [];
   bool _saving = false;
 
   int get _teamSize => int.parse(_format.substring(0, 1));
+
+  @override
+  void initState() {
+    super.initState();
+    // 2 đội khởi điểm, mỗi đội 1 tên vui sẵn (sửa được).
+    _teams.add(_newDraft());
+    _teams.add(_newDraft());
+  }
+
+  _TeamDraft _newDraft() => _TeamDraft(randomFunTeamName(
+      exclude: _teams.map((t) => t.name.text).toSet()));
 
   @override
   void dispose() {
@@ -300,7 +316,7 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
                           fontWeight: FontWeight.w800)),
                   const Spacer(),
                   TextButton.icon(
-                    onPressed: () => setState(() => _teams.add(_TeamDraft())),
+                    onPressed: () => setState(() => _teams.add(_newDraft())),
                     icon: const Icon(Icons.add, color: AppColors.gold),
                     label: const Text('Thêm đội',
                         style: TextStyle(color: AppColors.gold)),

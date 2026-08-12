@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../logic/fixture_edit.dart';
 import '../logic/knockout.dart';
 import '../logic/standings.dart';
 import '../models/tournament.dart';
@@ -43,42 +44,66 @@ class TournamentDetailPage extends StatelessWidget {
   }
 }
 
-class _Body extends StatelessWidget {
+class _Body extends StatefulWidget {
   const _Body({required this.t, required this.service});
 
   final Tournament t;
   final TournamentService service;
 
+  @override
+  State<_Body> createState() => _BodyState();
+}
+
+class _BodyState extends State<_Body> {
+  // Đã nhập PIN đúng 1 lần trong phiên xem giải này -> các lần sửa sau
+  // không phải gõ lại (đỡ phiền khi nhập kết quả cả buổi thi đấu).
+  bool _unlocked = false;
+
+  Tournament get t => widget.t;
+  TournamentService get service => widget.service;
+
   String _teamName(String? id) => t.teamById(id)?.name ?? '?';
+  List<String> _teamMembers(String? id) =>
+      t.teamById(id)?.memberNames ?? const [];
+
+  Future<bool> _ensurePin() async {
+    if (_unlocked) return true;
+    final ok = await askPin(context, t.pin);
+    if (ok && mounted) setState(() => _unlocked = true);
+    return ok;
+  }
 
   // ---- Nhập / sửa tỉ số ----
 
-  Future<void> _editGroupFixture(BuildContext context, Fixture f) async {
-    if (!await askPin(context, t.pin)) return;
-    if (!context.mounted) return;
+  Future<void> _editGroupFixture(Fixture f) async {
+    if (!await _ensurePin()) return;
+    if (!mounted) return;
     final res = await showScoreDialog(
       context,
       teamA: _teamName(f.aId),
       teamB: _teamName(f.bId),
+      membersA: _teamMembers(f.aId),
+      membersB: _teamMembers(f.bId),
       firstTo: t.firstTo,
       scoreA: f.scoreA,
       scoreB: f.scoreB,
     );
     if (res == null) return;
-    final updated = f.copyWith(scoreA: res.$1, scoreB: res.$2);
-    final list =
-        t.groupFixtures.map((x) => x.id == f.id ? updated : x).toList();
-    await service.save(t.copyWith(groupFixtures: list));
+    // Khớp theo (id, stage) — không ghi đè nhầm trận của bảng khác.
+    await service.save(t.copyWith(
+        groupFixtures: groupFixturesAfterEdit(t, f, res.$1, res.$2)));
   }
 
-  Future<void> _editKoFixture(BuildContext context, KoSlot s) async {
+  Future<void> _editKoFixture(KoSlot s) async {
     if (s.aId == null || s.bId == null) return;
-    if (!await askPin(context, t.pin)) return;
-    if (!context.mounted) return;
+    if (!await _ensurePin()) return;
+    if (!mounted) return;
     final res = await showScoreDialog(
       context,
       teamA: _teamName(s.aId),
       teamB: _teamName(s.bId),
+      membersA: _teamMembers(s.aId),
+      membersB: _teamMembers(s.bId),
       firstTo: t.firstTo,
       scoreA: s.fixture.scoreA,
       scoreB: s.fixture.scoreB,
@@ -89,7 +114,7 @@ class _Body extends StatelessWidget {
     await service.save(t.copyWith(koFixtures: koFixturesAfterEdit(t, updated)));
   }
 
-  Future<void> _deleteTournament(BuildContext context) async {
+  Future<void> _deleteTournament() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -109,11 +134,12 @@ class _Body extends StatelessWidget {
         ],
       ),
     );
-    if (confirmed != true || !context.mounted) return;
+    if (confirmed != true || !mounted) return;
+    // Xoá là thao tác huỷ diệt -> luôn hỏi PIN, kể cả khi đã mở khoá.
     if (!await askPin(context, t.pin)) return;
-    if (!context.mounted) return;
+    if (!mounted) return;
     await service.delete(t.id);
-    if (context.mounted) Navigator.of(context).pop();
+    if (mounted) Navigator.of(context).pop();
   }
 
   // ---- Build ----
@@ -134,15 +160,19 @@ class _Body extends StatelessWidget {
             const SizedBox(height: 4),
             Text('${t.format} · chạm ${t.firstTo} · ${t.teams.length} đội',
                 style: const TextStyle(color: Colors.white54, fontSize: 13)),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: () => _deleteTournament(context),
-                icon: const Icon(Icons.delete_outline,
-                    size: 18, color: Colors.white38),
-                label: const Text('Xoá giải',
-                    style: TextStyle(color: Colors.white38)),
-              ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _lockChip(),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _deleteTournament,
+                  icon: const Icon(Icons.delete_outline,
+                      size: 18, color: Colors.white38),
+                  label: const Text('Xoá giải',
+                      style: TextStyle(color: Colors.white38)),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             ..._championSection(),
@@ -156,11 +186,45 @@ class _Body extends StatelessWidget {
                     : 0,
               ),
               const SizedBox(height: 12),
-              _fixtures(context, g),
+              _fixtures(g),
               const SizedBox(height: 20),
             ],
-            if (t.structure == kStructureGroupsKnockout) _koSection(context),
+            if (t.structure == kStructureGroupsKnockout) _koSection(),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Chip trạng thái khoá: bấm để mở khoá trước (nhập PIN) hoặc khoá lại.
+  Widget _lockChip() {
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () async {
+        if (_unlocked) {
+          setState(() => _unlocked = false);
+        } else {
+          await _ensurePin();
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: _unlocked
+                ? AppColors.done.withValues(alpha: 0.6)
+                : Colors.white24,
+          ),
+        ),
+        child: Text(
+          _unlocked ? '🔓 Đã mở khoá — bấm trận để sửa' : '🔒 Nhập kết quả',
+          style: TextStyle(
+            color: _unlocked ? AppColors.done : Colors.white54,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );
@@ -191,7 +255,7 @@ class _Body extends StatelessWidget {
     ];
   }
 
-  Widget _fixtures(BuildContext context, GroupDef g) {
+  Widget _fixtures(GroupDef g) {
     final fs = t.groupFixtures.where((f) => f.stage == g.name).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,7 +275,7 @@ class _Body extends StatelessWidget {
             aWon: f.winnerId(t.firstTo) == f.aId && f.aId != null,
             bWon: f.winnerId(t.firstTo) == f.bId && f.bId != null,
             decided: f.decided(t.firstTo),
-            onTap: () => _editGroupFixture(context, f),
+            onTap: () => _editGroupFixture(f),
           ),
       ],
     );
@@ -219,7 +283,7 @@ class _Body extends StatelessWidget {
 
   // ---- Loại trực tiếp ----
 
-  Widget _koSection(BuildContext context) {
+  Widget _koSection() {
     if (!groupStageDone(t)) {
       return Container(
         padding: const EdgeInsets.all(14),
@@ -242,7 +306,7 @@ class _Body extends StatelessWidget {
           label: const Text('Tạo nhánh loại trực tiếp',
               style: TextStyle(fontWeight: FontWeight.w800)),
           onPressed: () async {
-            if (!await askPin(context, t.pin)) return;
+            if (!await _ensurePin()) return;
             await service.save(t.copyWith(koFixtures: buildKnockout(t)));
           },
         ),
@@ -275,7 +339,7 @@ class _Body extends StatelessWidget {
               bWon: s.winnerId != null && s.winnerId == s.bId,
               decided: s.winnerId != null,
               onTap: (s.aId != null && s.bId != null)
-                  ? () => _editKoFixture(context, s)
+                  ? () => _editKoFixture(s)
                   : null,
             ),
         ],

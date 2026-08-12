@@ -1,3 +1,5 @@
+import 'package:aoe_ranking/features/tournament/data/fun_team_names.dart';
+import 'package:aoe_ranking/features/tournament/logic/fixture_edit.dart';
 import 'package:aoe_ranking/features/tournament/logic/knockout.dart';
 import 'package:aoe_ranking/features/tournament/logic/round_robin.dart';
 import 'package:aoe_ranking/features/tournament/logic/standings.dart';
@@ -194,6 +196,55 @@ void main() {
           }
         }
       }
+    });
+  });
+
+  group('generateRoundRobin — id duy nhất', () {
+    test('2 bảng tạo liên tiếp không trùng id (lỗi cũ trên web)', () {
+      // Trên web timestamp chỉ có độ phân giải ms nên 2 lời gọi liên tiếp
+      // gần như chắc chắn cùng timestamp — id phải vẫn duy nhất.
+      final a = generateRoundRobin(['a', 'b', 'c', 'd'], stage: 'Bảng A');
+      final b = generateRoundRobin(['e', 'f', 'g', 'h'], stage: 'Bảng B');
+      final ids = {...a.map((f) => f.id), ...b.map((f) => f.id)};
+      expect(ids.length, a.length + b.length);
+    });
+  });
+
+  group('groupFixturesAfterEdit', () {
+    test('dữ liệu cũ trùng id giữa 2 bảng: chỉ sửa trận đúng bảng', () {
+      // Mô phỏng giải cũ bị lỗi sinh id: 2 bảng có cùng id 'f1_0'.
+      final t = tourn(
+        teamIds: ['a1', 'a2', 'b1', 'b2'],
+        groups: [
+          const GroupDef(name: 'Bảng A', teamIds: ['a1', 'a2']),
+          const GroupDef(name: 'Bảng B', teamIds: ['b1', 'b2']),
+        ],
+        groupFixtures: [
+          fx('f1_0', 'Bảng A', 'a1', 'a2'),
+          fx('f1_0', 'Bảng B', 'b1', 'b2'), // id trùng, khác bảng
+        ],
+      );
+      final edited = groupFixturesAfterEdit(
+          t, t.groupFixtures.first, 1, 0); // sửa trận Bảng A: 1-0
+      final bangA = edited.firstWhere((f) => f.stage == 'Bảng A');
+      final bangB = edited.firstWhere((f) => f.stage == 'Bảng B');
+      expect(bangA.scoreA, 1);
+      // Trận Bảng B không bị ghi đè: giữ nguyên đội và tỉ số.
+      expect(bangB.aId, 'b1');
+      expect(bangB.scoreA, 0);
+      expect(bangB.scoreB, 0);
+    });
+  });
+
+  group('randomFunTeamName', () {
+    test('không rỗng và tránh tên đã dùng', () {
+      final used = kFunTeamNames.take(kFunTeamNames.length - 1).toSet();
+      // Chỉ còn đúng 1 tên chưa dùng -> phải trả về tên đó.
+      final name = randomFunTeamName(exclude: used);
+      expect(name, kFunTeamNames.last);
+      // Hết kho -> vẫn trả về 1 tên hợp lệ (cho phép trùng).
+      final any = randomFunTeamName(exclude: kFunTeamNames.toSet());
+      expect(kFunTeamNames.contains(any), isTrue);
     });
   });
 

@@ -26,16 +26,18 @@ const HEADERS = {
 };
 
 // ---- Tham số cơ chế ELO ----
-const K = 28; // độ nhạy mỗi trận
+// Hệ ELO chuẩn quốc tế: mọi người xuất phát từ RATING_BASE, không bao giờ âm.
+// - 10 trận đầu (mỗi bảng) dùng K lớn để "định hạng" nhanh về đúng trình độ;
+//   từ trận 11 dùng K nhỏ hơn cho ổn định, ít nhiễu.
+// - KHÔNG cộng/trừ điểm theo số trận: ELO chỉ phản ánh trình độ.
+//   Dưới PLACEMENT_GAMES trận, client hiển thị nhãn "tạm xếp".
+const RATING_BASE = 1000; // điểm xuất phát (mốc trung bình)
+const RATING_FLOOR = 0; // chặn dưới tuyệt đối (thực tế luôn quanh 1000)
+const K_PLACEMENT = 40; // độ nhạy 10 trận đầu (định hạng)
+const K_STANDARD = 24; // độ nhạy từ trận 11 (ổn định)
+const PLACEMENT_GAMES = 10; // số trận định hạng
 const ALPHA = 0.5; // trọng số Kết quả (thắng/thua) so với Phong độ (chỉ số)
 const MODES = ["1v1", "2v2", "3v3", "4v4"]; // các thể loại tính riêng (trận cân người)
-
-// Điều chỉnh theo TỔNG SỐ TRẬN (trong cửa sổ, theo từng bảng):
-//   ELO_hiển_thị = rating × games/(games+CONF_C)  +  ACT_B × √games
-//   - Hệ số tin cậy: chơi ít -> ELO co về 0 (tránh mẫu nhỏ vọt top).
-//   - Thưởng hoạt động: chơi nhiều -> cộng thêm (giảm dần theo căn bậc hai).
-const CONF_C = 10;
-const ACT_B = 2;
 
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
@@ -62,22 +64,45 @@ const METRICS = [
 
 // ---- API ----
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Gọi fetch có retry (API GPlay thỉnh thoảng chập chờn; lỗi 1 request
+// không nên làm hỏng cả lần cập nhật của GitHub Action).
+async function fetchWithRetry(url, { retries = 3, delayMs = 1500 } = {}) {
+  let lastErr;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, { headers: HEADERS });
+      if (res.ok) return res;
+      lastErr = new Error(`HTTP ${res.status}`);
+    } catch (e) {
+      lastErr = e;
+    }
+    if (attempt < retries) await sleep(delayMs * attempt);
+  }
+  throw lastErr;
+}
+
 async function fetchPage(uuid, size, index) {
   const url = `${BASE}?user_uuid=${encodeURIComponent(
     uuid
   )}&game_code=${GAME_CODE}&size=${size}&index=${index}`;
-  const res = await fetch(url, { headers: HEADERS });
-  if (!res.ok) throw new Error(`GPlay API ${res.status} (user ${uuid}, trang ${index})`);
+  let res;
+  try {
+    res = await fetchWithRetry(url);
+  } catch (e) {
+    throw new Error(`GPlay API lỗi (user ${uuid}, trang ${index}): ${e.message}`);
+  }
   const json = await res.json();
   return json?.Data?.list ?? [];
 }
 
 // Lấy tên/avatar hiện tại từ hồ sơ user (public, không cần token).
+// Lỗi thì trả null (không chặn việc tính ELO).
 async function fetchProfile(uuid) {
   try {
     const url = `${PROFILE_BASE}?user_uuid=${encodeURIComponent(uuid)}&game_code=${GAME_CODE}`;
-    const res = await fetch(url, { headers: HEADERS });
-    if (!res.ok) return null;
+    const res = await fetchWithRetry(url, { retries: 2 });
     const d = (await res.json())?.Data;
     if (!d) return null;
     return { name: d.display_name || "", avatar_url: d.avatar_url || "" };
@@ -186,7 +211,7 @@ function perfScores(m) {
 // ---- Cập nhật ELO tuần tự ----
 
 function emptyBucket() {
-  return { rating: 0, games: 0, wins: 0, losses: 0 };
+  return { rating: RATING_BASE, games: 0, wins: 0, losses: 0 };
 }
 
 function emptyInfo() {
@@ -224,7 +249,9 @@ function applyElo(bucketOf, m, ps) {
     const expected = 1 / (1 + Math.pow(10, (opp - my) / 400));
     const win = isWin(m, p.uuid) ? 1 : 0;
     const score = ALPHA * win + (1 - ALPHA) * p.perf;
-    bk.rating += K * (score - expected);
+    // K thích ứng: định hạng nhanh 10 trận đầu, sau đó ổn định.
+    const k = bk.games < PLACEMENT_GAMES ? K_PLACEMENT : K_STANDARD;
+    bk.rating = Math.max(RATING_FLOOR, bk.rating + k * (score - expected));
     bk.games += 1;
     if (win) bk.wins += 1;
     else bk.losses += 1;
@@ -232,16 +259,13 @@ function applyElo(bucketOf, m, ps) {
 }
 
 function buildLeaderboard(info, meta) {
-  const round = (b) => {
-    const rel = b.games > 0 ? b.games / (b.games + CONF_C) : 0; // hệ số tin cậy
-    const bonus = ACT_B * Math.sqrt(b.games); // thưởng hoạt động
-    return {
-      elo: Math.round(b.rating * rel + bonus),
-      games: b.games,
-      wins: b.wins,
-      losses: b.losses,
-    };
-  };
+  // ELO hiển thị = rating làm tròn, không cộng/trừ theo số trận.
+  const round = (b) => ({
+    elo: Math.round(b.rating),
+    games: b.games,
+    wins: b.wins,
+    losses: b.losses,
+  });
   const members = TEAM.map((u) => {
     const modes = {};
     for (const k of MODES) modes[k] = round(info[u].modes[k]);

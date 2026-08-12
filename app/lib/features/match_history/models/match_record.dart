@@ -1,11 +1,13 @@
 // Một trận (parse trực tiếp từ API GPlay), đủ dữ liệu cho cả danh sách lẫn chi tiết.
 
+import '../../../core/utils/datetime_vn.dart';
+
 int _int(dynamic v) => (v is num) ? v.toInt() : 0;
 
 class PlayerStat {
   final String uuid;
   final String name;
-  final int color; // empires_color
+  final int color; // empires_color; 0 = không có dữ liệu thống kê
   final int empiresType; // loại quân
   final bool win;
   final int kills;
@@ -101,15 +103,13 @@ class MatchRecord {
   List<PlayerStat> get oppTeam => _viewerInRed() ? blue : red;
 
   // Số người thực mỗi đội = số màu khác nhau (trùng màu = viewer/cùng slot).
+  // color <= 0 nghĩa là không có dữ liệu màu -> không gộp được, mỗi người tính
+  // là 1 slot riêng (khớp luật của scripts/compute.mjs).
   int _distinct(List<PlayerStat> side) {
     final seen = <int>{};
     var n = 0;
     for (final p in side) {
-      if (p.color < 0) {
-        n++;
-      } else if (seen.add(p.color)) {
-        n++;
-      }
+      if (p.color <= 0 || seen.add(p.color)) n++;
     }
     return n;
   }
@@ -131,9 +131,7 @@ class MatchRecord {
     return out;
   }
 
-  DateTime get dateVN =>
-      DateTime.fromMillisecondsSinceEpoch(createdTime * 1000, isUtc: true)
-          .add(const Duration(hours: 7));
+  DateTime get dateVN => epochToVN(createdTime);
 
   factory MatchRecord.fromApi(
     Map<String, dynamic> j,

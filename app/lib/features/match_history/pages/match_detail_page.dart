@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../models/match_record.dart';
 
 // Màu quân theo empires_color (AoE).
@@ -32,12 +33,9 @@ class MatchDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = record;
     final win = r.win;
-    final banner = win ? const Color(0xFF16A34A) : const Color(0xFFDC2626);
+    final banner = win ? AppColors.winStrong : AppColors.lossStrong;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
-        foregroundColor: Colors.white,
         title: const Text('Chi tiết trận',
             style: TextStyle(fontWeight: FontWeight.w800)),
       ),
@@ -52,7 +50,7 @@ class MatchDetailPage extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [banner, banner.withOpacity(0.55)],
+                    colors: [banner, banner.withValues(alpha: 0.55)],
                   ),
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -71,7 +69,8 @@ class MatchDetailPage extends StatelessWidget {
                     ),
                     Text('Phòng ${r.roomId}',
                         style: TextStyle(
-                            color: Colors.white.withOpacity(0.8), fontSize: 11)),
+                            color: Colors.white.withValues(alpha: 0.8),
+                            fontSize: 11)),
                   ],
                 ),
               ),
@@ -109,14 +108,13 @@ class _TeamBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final teamWon = players.isNotEmpty && players.first.win;
-    final tagColor =
-        teamWon ? const Color(0xFF16A34A) : const Color(0xFFDC2626);
+    final tagColor = teamWon ? AppColors.winStrong : AppColors.lossStrong;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: tagColor.withOpacity(0.4)),
+        border: Border.all(color: tagColor.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,7 +131,7 @@ class _TeamBlock extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: tagColor.withOpacity(0.2),
+                  color: tagColor.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(teamWon ? 'THẮNG' : 'THUA',
@@ -162,16 +160,16 @@ class _PlayerBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = player;
-    final color = _slotColors[p.color] ?? const Color(0xFF64748B);
+    final color = _slotColors[p.color] ?? AppColors.muted;
     final civ = _civNames[p.empiresType] ?? 'Quân #${p.empiresType}';
     return Container(
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: isViewer ? const Color(0xFF334155) : const Color(0xFF0F172A),
+        color: isViewer ? AppColors.surfaceLight : AppColors.background,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isViewer ? const Color(0xFFFBBF24) : Colors.white10,
+          color: isViewer ? AppColors.gold : Colors.white10,
           width: isViewer ? 1.4 : 1,
         ),
       ),
@@ -183,7 +181,8 @@ class _PlayerBlock extends StatelessWidget {
               Container(
                 width: 14,
                 height: 14,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                decoration:
+                    BoxDecoration(color: color, shape: BoxShape.circle),
               ),
               const SizedBox(width: 8),
               Flexible(
@@ -191,7 +190,7 @@ class _PlayerBlock extends StatelessWidget {
                   p.label,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: isViewer ? const Color(0xFFFBBF24) : Colors.white,
+                    color: isViewer ? AppColors.gold : Colors.white,
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                   ),
@@ -234,7 +233,7 @@ class _PlayerBlock extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.white12),
       ),

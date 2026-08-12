@@ -10,3 +10,6 @@ app/pubspec.lock
 
 # LƯU Ý: KHÔNG ignore file dữ liệu — Action cần commit nó:
 #   app/web/data/leaderboard.json
+
+# Local agent config
+.claude/

@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 
-import '../models/leaderboard.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../leaderboard/models/leaderboard.dart';
+import '../logic/round_robin.dart';
 import '../models/tournament.dart';
 import '../services/tournament_service.dart';
 
 class _TeamDraft {
   final TextEditingController name = TextEditingController();
   List<String> memberUuids = [];
+
+  void dispose() => name.dispose();
 }
 
 class TournamentCreatePage extends StatefulWidget {
@@ -33,15 +37,22 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
 
   int get _teamSize => int.parse(_format.substring(0, 1));
 
-  String _nameOf(String uuid) =>
-      widget.roster.firstWhere((m) => m.userUuid == uuid,
-          orElse: () => const Member(
-              userUuid: '',
-              name: '?',
-              avatarUrl: '',
-              lastPlayed: 0,
-              total: ModeStat(),
-              modes: {})).name;
+  @override
+  void dispose() {
+    _name.dispose();
+    _pin.dispose();
+    for (final t in _teams) {
+      t.dispose();
+    }
+    super.dispose();
+  }
+
+  String _nameOf(String uuid) {
+    for (final m in widget.roster) {
+      if (m.userUuid == uuid) return m.name;
+    }
+    return '?';
+  }
 
   // Các uuid đã được chọn ở đội khác (để không trùng).
   Set<String> _usedExcept(_TeamDraft self) {
@@ -60,7 +71,6 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          backgroundColor: const Color(0xFF1E293B),
           title: Text('Chọn $_teamSize thành viên',
               style: const TextStyle(color: Colors.white, fontSize: 16)),
           content: SizedBox(
@@ -128,22 +138,20 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
   Future<void> _save() async {
     final err = _validate();
     if (err != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(err)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
       return;
     }
     setState(() => _saving = true);
     try {
-      final teams = <TournTeam>[];
-      for (var i = 0; i < _teams.length; i++) {
-        final d = _teams[i];
-        teams.add(TournTeam(
-          id: 't$i',
-          name: d.name.text.trim(),
-          memberUuids: d.memberUuids,
-          memberNames: d.memberUuids.map(_nameOf).toList(),
-        ));
-      }
+      final teams = <TournTeam>[
+        for (var i = 0; i < _teams.length; i++)
+          TournTeam(
+            id: 't$i',
+            name: _teams[i].name.text.trim(),
+            memberUuids: _teams[i].memberUuids,
+            memberNames: _teams[i].memberUuids.map(_nameOf).toList(),
+          ),
+      ];
       final teamIds = teams.map((e) => e.id).toList();
       final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
@@ -196,10 +204,7 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
-        foregroundColor: Colors.white,
         title: const Text('Tạo giải',
             style: TextStyle(fontWeight: FontWeight.w800)),
       ),
@@ -225,7 +230,7 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
                 children: [
                   Expanded(
                     child: _dropdown<String>(
-                      label: 'Thể thức',
+                      label: 'Thể loại',
                       value: _format,
                       items: const ['1v1', '2v2', '3v3', '4v4'],
                       itemLabel: (v) => v,
@@ -296,9 +301,9 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
                   const Spacer(),
                   TextButton.icon(
                     onPressed: () => setState(() => _teams.add(_TeamDraft())),
-                    icon: const Icon(Icons.add, color: Color(0xFFFBBF24)),
+                    icon: const Icon(Icons.add, color: AppColors.gold),
                     label: const Text('Thêm đội',
-                        style: TextStyle(color: Color(0xFFFBBF24))),
+                        style: TextStyle(color: AppColors.gold)),
                   ),
                 ],
               ),
@@ -306,7 +311,7 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
               const SizedBox(height: 20),
               FilledButton(
                 style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFFBBF24),
+                    backgroundColor: AppColors.gold,
                     foregroundColor: Colors.black),
                 onPressed: _saving ? null : _save,
                 child: _saving
@@ -337,7 +342,7 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
       margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white12),
       ),
@@ -355,7 +360,8 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
               ),
               if (_teams.length > 2)
                 IconButton(
-                  onPressed: () => setState(() => _teams.removeAt(i)),
+                  onPressed: () =>
+                      setState(() => _teams.removeAt(i).dispose()),
                   icon: const Icon(Icons.delete_outline, color: Colors.white38),
                 ),
             ],
@@ -374,7 +380,7 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
               TextButton(
                 onPressed: () => _pickMembers(t),
                 child: Text('Chọn ($_teamSize)',
-                    style: const TextStyle(color: Color(0xFFFBBF24))),
+                    style: const TextStyle(color: AppColors.gold)),
               ),
             ],
           ),
@@ -389,7 +395,7 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
         enabledBorder: const OutlineInputBorder(
             borderSide: BorderSide(color: Colors.white24)),
         focusedBorder: const OutlineInputBorder(
-            borderSide: BorderSide(color: Color(0xFFFBBF24))),
+            borderSide: BorderSide(color: AppColors.gold)),
       );
 
   Widget _dropdown<T>({
@@ -405,7 +411,7 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
         child: DropdownButton<T>(
           value: value,
           isDense: true,
-          dropdownColor: const Color(0xFF1E293B),
+          dropdownColor: AppColors.surface,
           style: const TextStyle(color: Colors.white),
           onChanged: onChanged,
           items: [

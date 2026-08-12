@@ -5,9 +5,10 @@ Web tính điểm ELO riêng cho các thành viên team dựa trên API lịch s
 
 ## Luật tính ELO
 
-- ELO mỗi thành viên **bắt đầu từ 0**, chỉ tính các trận trong **6 tháng gần nhất** (cửa sổ
-  trượt, cấu hình `WINDOW_MONTHS` trong `scripts/team.mjs`). Mỗi lần cập nhật tính lại toàn bộ
-  cửa sổ này — trận cũ hơn 6 tháng tự rơi ra.
+- ELO mỗi thành viên **bắt đầu từ 1000** (mốc trung bình, chuẩn quốc tế) và **không bao giờ
+  âm**. Chỉ tính các trận trong **6 tháng gần nhất** (cửa sổ trượt, cấu hình `WINDOW_MONTHS`
+  trong `scripts/team.mjs`). Mỗi lần cập nhật tính lại toàn bộ cửa sổ này — trận cũ hơn
+  6 tháng tự rơi ra.
 - Chỉ tính trận **nội bộ**: TẤT CẢ người chơi của cả 2 đội đều là thành viên team.
 - Loại **trận "ma"**: (1) chỉ có 1 người chơi hoặc một đội rỗng (Xv0 — không có đối thủ), hoặc
   (2) tổng `kills + losses` (giết + mất quân) của tất cả người chơi `< 10` (không có giao tranh thật).
@@ -17,10 +18,12 @@ Web tính điểm ELO riêng cho các thành viên team dựa trên API lịch s
 - **Performance ELO** (không chỉ thắng/thua): mỗi trận, từng chỉ số (giết/mất quân, phá công trình,
   đào vàng, dân số, công nghệ, tốc độ lên đời, mở bản đồ, bơm đồ...) được chuẩn hoá tương đối giữa
   những người cùng trận thành `perf ∈ [0,1]`. Điểm nhận `S = 0.5·(thắng?1:0) + 0.5·perf`,
-  cập nhật `Δ = 28·(S − E)` với `E` là kỳ vọng theo ELO trung bình 2 đội. Bắt đầu 0, **cho phép âm**.
+  cập nhật `Δ = K·(S − E)` với `E` là kỳ vọng theo ELO trung bình 2 đội.
   Thắng/thua lấy từ `statistics.result` (KHÔNG dùng `victory_team_idx` — field này luôn = 0).
-- Điều chỉnh theo **tổng số trận** (mỗi bảng): `ELO = rating × games/(games+10) + 2·√games`
-  — chơi ít thì ELO co về 0 (tránh mẫu nhỏ vọt top), chơi nhiều được cộng thưởng nhẹ.
+- **K thích ứng** (mỗi bảng): 10 trận đầu `K = 40` — định hạng nhanh về đúng trình độ;
+  từ trận 11 `K = 24` — ổn định, ít nhiễu. Không cộng/trừ điểm theo số trận: ELO chỉ đo
+  trình độ, không đo độ chăm. Dưới 10 trận web hiển thị nhãn **"ELO tạm"** (chưa đủ tin cậy);
+  chưa có trận ở bảng nào thì bảng đó hiện "—" và xếp cuối.
 - Xếp hạng theo ELO giảm dần (hạng 1, 2, 3...).
 - Ngoài ELO **Tổng**, còn tính ELO **riêng cho từng thể loại 1v1 / 2v2 / 3v3 / 4v4** (chỉ trận
   cân người; trận lệch như 3v4 chỉ tính vào Tổng). Web có nút chọn chế độ để xem từng bảng.
@@ -35,7 +38,14 @@ AOE_Ranking/
 │   └── compute.mjs       # Fetch API + tính ELO cửa sổ 6 tháng (Node, không cần package)
 ├── app/                  # Flutter web (đọc data/leaderboard.json qua HTTP)
 │   ├── web/data/leaderboard.json   # Dữ liệu hiển thị (do script ghi)
-│   └── lib/{main,models/,services/,ui/}.dart
+│   ├── lib/
+│   │   ├── main.dart / app.dart    # Khởi động + MaterialApp/theme
+│   │   ├── core/                   # Dùng chung: theme (màu), utils, widgets
+│   │   └── features/               # Mỗi tính năng 1 thư mục riêng
+│   │       ├── leaderboard/        #   Bảng xếp hạng (models/services/pages/widgets)
+│   │       ├── match_history/      #   Lịch sử & chi tiết trận
+│   │       └── tournament/         #   Giải đấu (models / logic / services / pages / widgets)
+│   └── test/                       # Unit test logic giải đấu (KO, vòng tròn, bảng điểm)
 ├── .github/workflows/update.yml    # Cron 3 lần/ngày + build + deploy Pages
 └── README.md
 ```

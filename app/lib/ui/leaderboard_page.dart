@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../models/leaderboard.dart';
 import '../services/leaderboard_service.dart';
+import 'user_history_page.dart';
 
 // Các chế độ xem: nhãn hiển thị + key trong dữ liệu.
 const List<({String key, String label})> _views = [
@@ -162,6 +163,7 @@ class _Content extends StatelessWidget {
                   stat: active[i].statFor(view),
                 ),
                 accent: _rankColor(i + 1),
+                sinceEpoch: board.startEpoch,
               ),
             if (inactive.isNotEmpty) ...[
               const SizedBox(height: 18),
@@ -193,6 +195,7 @@ class _Content extends StatelessWidget {
                       stat: m.statFor(view),
                     ),
                     accent: const Color(0xFF475569),
+                    sinceEpoch: board.startEpoch,
                   ),
                 ),
             ],
@@ -324,97 +327,71 @@ class _Chip extends StatelessWidget {
 
 const Map<int, String> _medals = {1: '🥇', 2: '🥈', 3: '🥉'};
 
-class _MemberCard extends StatefulWidget {
-  const _MemberCard({required this.ranked, required this.accent});
+class _MemberCard extends StatelessWidget {
+  const _MemberCard({
+    required this.ranked,
+    required this.accent,
+    required this.sinceEpoch,
+  });
 
   final RankedMember ranked;
   final Color accent;
+  final int sinceEpoch;
 
-  @override
-  State<_MemberCard> createState() => _MemberCardState();
-}
-
-class _MemberCardState extends State<_MemberCard>
-    with TickerProviderStateMixin {
-  late final AnimationController _glow;
-
-  bool get _isTop3 => widget.ranked.rank >= 1 && widget.ranked.rank <= 3;
-
-  @override
-  void initState() {
-    super.initState();
-    _glow = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    );
-    if (_isTop3) _glow.repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _glow.dispose();
-    super.dispose();
-  }
+  bool get _isTop3 => ranked.rank >= 1 && ranked.rank <= 3;
 
   @override
   Widget build(BuildContext context) {
-    final accent = widget.accent;
-    Widget card;
-    if (_isTop3) {
-      card = AnimatedBuilder(
-        animation: _glow,
-        builder: (_, child) {
-          final t = _glow.value; // 0..1
-          return Container(
+    // Style TĨNH (không animate) để cuộn thật mượt trên web.
+    final Widget card = _isTop3
+        ? Container(
             margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               gradient: LinearGradient(
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
-                colors: [
-                  accent.withOpacity(0.30),
-                  const Color(0xFF1E293B),
-                ],
+                colors: [accent.withOpacity(0.30), const Color(0xFF1E293B)],
               ),
               border: Border.all(color: accent.withOpacity(0.75), width: 1.6),
               boxShadow: [
-                BoxShadow(
-                  color: accent.withOpacity(0.25 + 0.35 * t),
-                  blurRadius: 16 + 10 * t,
-                  spreadRadius: 1,
-                ),
+                BoxShadow(color: accent.withOpacity(0.32), blurRadius: 12),
               ],
             ),
-            child: child,
+            child: _row(context, big: true),
+          )
+        : Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: accent.withOpacity(0.35), width: 1),
+            ),
+            child: _row(context, big: false),
           );
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          child: _row(context, big: true),
-        ),
-      );
-    } else {
-      card = Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: accent.withOpacity(0.35), width: 1),
-        ),
-        child: _row(context, big: false),
-      );
-    }
 
-    return card;
+    // RepaintBoundary: cô lập vẽ từng thẻ -> cuộn không repaint cả list.
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => UserHistoryPage(
+              member: ranked.member,
+              sinceEpoch: sinceEpoch,
+            ),
+          ),
+        ),
+        child: card,
+      ),
+    );
   }
 
   Widget _row(BuildContext context, {required bool big}) {
-    final m = widget.ranked.member;
-    final s = widget.ranked.stat;
-    final accent = widget.accent;
-    final rank = widget.ranked.rank;
+    final m = ranked.member;
+    final s = ranked.stat;
+    final rank = ranked.rank;
     final avatar = CircleAvatar(
       radius: big ? 24 : 22,
       backgroundColor: const Color(0xFF334155),

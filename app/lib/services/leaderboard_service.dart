@@ -13,11 +13,12 @@ class LeaderboardService {
   Future<List<MatchRecord>> fetchUserHistory(
     String uuid, {
     required int sinceEpoch,
+    required Set<String> teamUuids,
   }) async {
     const base =
         'https://game-offline.gplay.vn/game/offline/api/v2.1/statistics/history';
     final out = <MatchRecord>[];
-    for (var index = 1; index <= 8; index++) {
+    for (var index = 1; index <= 12; index++) {
       final uri = Uri.parse('$base?user_uuid=$uuid&game_code=aoe&size=100&index=$index');
       final res = await http.get(uri, headers: {'Accept': 'application/json'});
       if (res.statusCode != 200) break;
@@ -27,12 +28,13 @@ class LeaderboardService {
       var reachedStart = false;
       for (final e in list) {
         final j = Map<String, dynamic>.from(e as Map);
-        final rec = MatchRecord.fromApi(j, uuid);
+        final rec = MatchRecord.fromApi(j, uuid, teamUuids);
         if (rec.createdTime < sinceEpoch) {
           reachedStart = true;
           continue;
         }
-        out.add(rec);
+        // Chỉ giữ trận nội bộ hợp lệ (giống điều kiện tính ELO).
+        if (rec.internal && !rec.ghost) out.add(rec);
       }
       if (reachedStart || list.length < 100) break;
     }

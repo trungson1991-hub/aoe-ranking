@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/leaderboard.dart';
 import '../models/match_record.dart';
 import '../services/leaderboard_service.dart';
+import 'match_detail_page.dart';
 
 // Các bộ lọc thể loại: nhãn + kích thước (null = Tất cả).
 const List<({String label, int? size})> _filters = [
@@ -19,11 +20,13 @@ class UserHistoryPage extends StatefulWidget {
     super.key,
     required this.member,
     required this.sinceEpoch,
+    required this.teamUuids,
     this.service = const LeaderboardService(),
   });
 
   final Member member;
   final int sinceEpoch;
+  final Set<String> teamUuids;
   final LeaderboardService service;
 
   @override
@@ -37,8 +40,11 @@ class _UserHistoryPageState extends State<UserHistoryPage> {
   @override
   void initState() {
     super.initState();
-    _future = widget.service
-        .fetchUserHistory(widget.member.userUuid, sinceEpoch: widget.sinceEpoch);
+    _future = widget.service.fetchUserHistory(
+      widget.member.userUuid,
+      sinceEpoch: widget.sinceEpoch,
+      teamUuids: widget.teamUuids,
+    );
   }
 
   @override
@@ -181,8 +187,12 @@ class _MatchTile extends StatelessWidget {
     final win = rec.win;
     final resultColor =
         win ? const Color(0xFF86EFAC) : const Color(0xFFFCA5A5);
-    final opp = rec.opponents.isEmpty ? '-' : rec.opponents.join(', ');
-    return Container(
+    final opp = rec.opponentNames.isEmpty ? '-' : rec.opponentNames.join(', ');
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => MatchDetailPage(record: rec)),
+      ),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -241,13 +251,16 @@ class _MatchTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: Colors.white70, fontSize: 13)),
                 const SizedBox(height: 2),
-                Text('Giết ${rec.kills} · Mất ${rec.losses}',
+                Text(
+                    'Giết ${rec.viewer?.kills ?? 0} · Mất ${rec.viewer?.losses ?? 0}',
                     style:
                         const TextStyle(color: Colors.white38, fontSize: 11)),
               ],
             ),
           ),
+          const Icon(Icons.chevron_right, color: Colors.white24),
         ],
+      ),
       ),
     );
   }

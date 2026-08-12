@@ -143,6 +143,7 @@ class _Content extends StatelessWidget {
     // Người 6 tháng không có trận -> tách xuống cuối.
     final inactive = board.members.where((m) => m.lastPlayed <= 0).toList()
       ..sort((a, b) => a.name.compareTo(b.name));
+    final teamUuids = board.members.map((m) => m.userUuid).toSet();
 
     return Center(
       child: ConstrainedBox(
@@ -164,6 +165,7 @@ class _Content extends StatelessWidget {
                 ),
                 accent: _rankColor(i + 1),
                 sinceEpoch: board.startEpoch,
+                teamUuids: teamUuids,
               ),
             if (inactive.isNotEmpty) ...[
               const SizedBox(height: 18),
@@ -196,6 +198,7 @@ class _Content extends StatelessWidget {
                     ),
                     accent: const Color(0xFF475569),
                     sinceEpoch: board.startEpoch,
+                    teamUuids: teamUuids,
                   ),
                 ),
             ],
@@ -332,11 +335,13 @@ class _MemberCard extends StatelessWidget {
     required this.ranked,
     required this.accent,
     required this.sinceEpoch,
+    required this.teamUuids,
   });
 
   final RankedMember ranked;
   final Color accent;
   final int sinceEpoch;
+  final Set<String> teamUuids;
 
   bool get _isTop3 => ranked.rank >= 1 && ranked.rank <= 3;
 
@@ -380,6 +385,7 @@ class _MemberCard extends StatelessWidget {
             builder: (_) => UserHistoryPage(
               member: ranked.member,
               sinceEpoch: sinceEpoch,
+              teamUuids: teamUuids,
             ),
           ),
         ),

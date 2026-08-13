@@ -164,6 +164,12 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
   }
 
   Future<void> _save() async {
+    // Safari trên máy tính commit giá trị ô nhập muộn — bỏ focus và chờ 1 nhịp
+    // để chữ vừa gõ chắc chắn đã vào controller trước khi đọc.
+    FocusManager.instance.primaryFocus?.unfocus();
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    if (!mounted) return;
+
     final err = _validate();
     if (err != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
@@ -218,7 +224,8 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
             groups: groups,
             groupFixtures: gfx,
             koFixtures: const [],
-          ));
+          ))
+          .timeout(const Duration(seconds: 15));
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
@@ -252,9 +259,18 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
               TextField(
                 controller: _pin,
                 style: const TextStyle(color: Colors.white),
-                decoration: _dec('PIN của giải (dùng để nhập kết quả / xoá)'),
+                decoration: _dec('PIN của giải'),
               ),
+              const SizedBox(height: 4),
+              const Text('Dùng để nhập kết quả, sửa và xoá giải.',
+                  style: TextStyle(color: Colors.white38, fontSize: 12)),
               const SizedBox(height: 14),
+              const Text('Tiền thưởng (đ) — để trống nếu không có',
+                  style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   for (var i = 0; i < 3; i++) ...[
@@ -265,8 +281,8 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
                         keyboardType: TextInputType.number,
                         style: const TextStyle(
                             color: Colors.white, fontSize: 14),
-                        decoration: _dec(
-                            const ['🥇 Nhất (đ)', '🥈 Nhì (đ)', '🥉 Ba (đ)'][i]),
+                        decoration:
+                            _dec(const ['🥇 Nhất', '🥈 Nhì', '🥉 Ba'][i]),
                       ),
                     ),
                   ],

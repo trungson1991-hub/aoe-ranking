@@ -139,6 +139,13 @@ class _TournamentEditPageState extends State<TournamentEditPage> {
   }
 
   Future<void> _save() async {
+    // Safari trên máy tính commit giá trị ô nhập khá muộn: bấm thẳng "Lưu"
+    // khi con trỏ còn trong ô có thể đọc ra giá trị cũ. Bỏ focus và chờ
+    // 1 nhịp để chữ vừa gõ chắc chắn đã vào controller.
+    FocusManager.instance.primaryFocus?.unfocus();
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    if (!mounted) return;
+
     final err = _validate();
     if (err != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
@@ -200,8 +207,14 @@ class _TournamentEditPageState extends State<TournamentEditPage> {
         name: _name.text.trim(),
         prizes: [for (final c in _prizes) parseMoney(c.text)],
       );
-      await widget.service.save(updated);
-      if (mounted) Navigator.of(context).pop();
+      // Mất mạng / Firebase bị chặn -> báo lỗi thay vì quay vòng vĩnh viễn.
+      await widget.service.save(updated).timeout(const Duration(seconds: 15));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã lưu thay đổi')),
+        );
+        Navigator.of(context).pop();
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)

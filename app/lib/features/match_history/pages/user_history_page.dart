@@ -175,31 +175,45 @@ class _SummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          // Wrap: số trận nhiều chữ số trên máy hẹp thì xuống dòng, không tràn.
+          Wrap(
+            spacing: 16,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.end,
             children: [
-              Text('$wins',
-                  style: const TextStyle(
-                      color: AppColors.win,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900)),
-              const Text(' thắng   ',
-                  style: TextStyle(color: Colors.white54, fontSize: 13)),
-              Text('$losses',
-                  style: const TextStyle(
-                      color: AppColors.loss,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900)),
-              const Text(' thua',
-                  style: TextStyle(color: Colors.white54, fontSize: 13)),
-              const Spacer(),
-              Text('${(winRate * 100).toStringAsFixed(0)}%',
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800)),
-              const Text(' tỉ lệ thắng',
-                  style: TextStyle(color: Colors.white38, fontSize: 11)),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('$wins',
+                      style: const TextStyle(
+                          color: AppColors.win,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900)),
+                  const Text(' thắng   ',
+                      style: TextStyle(color: Colors.white54, fontSize: 13)),
+                  Text('$losses',
+                      style: const TextStyle(
+                          color: AppColors.loss,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900)),
+                  const Text(' thua',
+                      style: TextStyle(color: Colors.white54, fontSize: 13)),
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('${(winRate * 100).toStringAsFixed(0)}%',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800)),
+                  const Text(' tỉ lệ thắng',
+                      style: TextStyle(color: Colors.white38, fontSize: 11)),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -223,35 +237,30 @@ class _SummaryCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Row(
+          // Wrap thay Row: màn hình hẹp (điện thoại) thì 2 khối tự xuống dòng
+          // thay vì bị đẩy ra ngoài màn hình.
+          Wrap(
+            spacing: 20,
+            runSpacing: 12,
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('PHONG ĐỘ GẦN ĐÂY',
+                  const Text('PHONG ĐỘ — MỚI NHẤT TRƯỚC',
                       style: TextStyle(
                           color: Colors.white38,
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.5)),
                   const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      const Text('mới nhất',
-                          style:
-                              TextStyle(color: Colors.white24, fontSize: 10)),
-                      const SizedBox(width: 6),
-                      for (final m in recent) _formDot(m.win),
-                      const Text('→ cũ',
-                          style:
-                              TextStyle(color: Colors.white24, fontSize: 10)),
-                    ],
+                  // Dãy ô cũng cho phép xuống dòng nếu vẫn chưa đủ chỗ.
+                  Wrap(
+                    children: [for (final m in recent) _formDot(m.win)],
                   ),
                 ],
               ),
-              const Spacer(),
               Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('TRUNG BÌNH / TRẬN',
                       style: TextStyle(

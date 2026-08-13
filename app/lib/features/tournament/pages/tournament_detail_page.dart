@@ -145,6 +145,51 @@ class _BodyState extends State<_Body> {
     await service.save(t.copyWith(koFixtures: koFixturesAfterEdit(t, updated)));
   }
 
+  /// Đổi tên giải nhanh bằng dialog (không phải vào trang sửa đội).
+  Future<void> _renameTournament() async {
+    if (!await _ensurePin()) return;
+    if (!mounted) return;
+    final ctrl = TextEditingController(text: t.name);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Đổi tên giải',
+            style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: 'Tên giải',
+            hintStyle: TextStyle(color: Colors.white38),
+            enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white24)),
+            focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: AppColors.gold)),
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Lưu',
+                style: TextStyle(fontWeight: FontWeight.w800)),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (newName == null || newName.isEmpty || newName == t.name) return;
+    await service.save(t.copyWith(name: newName));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đã đổi tên giải thành "$newName"')),
+      );
+    }
+  }
+
   Future<void> _openEditTeams() async {
     if (!t.isActive) return;
     if (!await _ensurePin()) return;
@@ -291,6 +336,8 @@ class _BodyState extends State<_Body> {
       color: AppColors.surfaceLight,
       onSelected: (v) {
         switch (v) {
+          case 'rename':
+            _renameTournament();
           case 'edit':
             _openEditTeams();
           case 'finish':
@@ -314,6 +361,11 @@ class _BodyState extends State<_Body> {
         }
       },
       itemBuilder: (_) => [
+        const PopupMenuItem(
+          value: 'rename',
+          child: Text('✏️ Đổi tên giải',
+              style: TextStyle(color: Colors.white, fontSize: 14)),
+        ),
         if (t.isActive) ...[
           const PopupMenuItem(
             value: 'edit',

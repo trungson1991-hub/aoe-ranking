@@ -99,7 +99,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
       // Thẻ tổng quan.
-      expect(find.text('PHONG ĐỘ GẦN ĐÂY'), findsOneWidget);
+      expect(find.text('PHONG ĐỘ — MỚI NHẤT TRƯỚC'), findsOneWidget);
       expect(find.text('TRUNG BÌNH / TRẬN'), findsOneWidget);
       expect(find.text('100%'), findsOneWidget); // 1 thắng / 1 trận
       // Tile trận: có đối thủ + đồng đội và badge W.

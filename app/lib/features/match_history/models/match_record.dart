@@ -4,6 +4,17 @@ import '../../../core/utils/datetime_vn.dart';
 
 int _int(dynamic v) => (v is num) ? v.toInt() : 0;
 
+// Thời gian nghiên cứu lên đời (ms). API chỉ trả mốc lên đời XONG, nhưng cái
+// người chơi muốn so là mốc BẤM lên đời — nên lùi lại đúng bằng các hằng này.
+const int _age2ResearchMs = 120 * 1000; // đời 1 -> 2: 2 phút
+const int _age3ResearchMs = 140 * 1000; // đời 2 -> 3: 2 phút 20
+const int _age4ResearchMs = 160 * 1000; // đời 3 -> 4: 2 phút 40
+
+/// Lùi mốc "lên đời xong" về mốc "bấm lên đời".
+/// 0 phải giữ nguyên 0 (chưa lên tới đời đó) chứ không được thành số âm.
+int _clickTime(int doneMs, int researchMs) =>
+    doneMs <= 0 ? 0 : doneMs - researchMs;
+
 class PlayerStat {
   final String uuid;
   final String name;
@@ -21,7 +32,9 @@ class PlayerStat {
   final int tribute; // bơm đồ
   final int age; // thời đại đạt được
 
-  // Mốc lên đời theo đồng hồ TRONG trận (ms), 0 = chưa lên tới đời đó.
+  // Mốc BẤM lên đời theo đồng hồ TRONG trận (ms), 0 = chưa lên tới đời đó.
+  // Đây KHÔNG phải số thô của API: API trả mốc lên đời xong, `fromApi` đã trừ
+  // thời gian nghiên cứu để ra mốc bấm.
   // API đặt tên trường theo tên đời đích chứ không theo số: stone = đời 2,
   // bronze = đời 3, steel = đời 4 (khớp với `age`: age 3 luôn có đúng 2 mốc).
   final int age2Time;
@@ -75,9 +88,9 @@ class PlayerStat {
       exploration: _int(s['exploration']),
       tribute: _int(s['tribute_given']),
       age: _int(s['age']),
-      age2Time: _int(s['stone_age_upgraded_time']),
-      age3Time: _int(s['bronze_age_upgraded_time']),
-      age4Time: _int(s['steel_age_upgraded_time']),
+      age2Time: _clickTime(_int(s['stone_age_upgraded_time']), _age2ResearchMs),
+      age3Time: _clickTime(_int(s['bronze_age_upgraded_time']), _age3ResearchMs),
+      age4Time: _clickTime(_int(s['steel_age_upgraded_time']), _age4ResearchMs),
     );
   }
 }

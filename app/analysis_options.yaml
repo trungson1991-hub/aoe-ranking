@@ -1,6 +1,11 @@
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
+  exclude:
+    # Build iOS khiến Swift Package Manager checkout mã nguồn plugin vào
+    # build/ios/SourcePackages; không loại trừ thì `flutter analyze` quét cả
+    # code bên thứ ba và báo hàng nghìn lỗi giả.
+    - build/**
   errors:
     # Nâng cảnh báo thành lỗi để CI chặn được (flutter analyze fail).
     unused_import: error

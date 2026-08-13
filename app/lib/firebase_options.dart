@@ -1,22 +1,19 @@
 // Cấu hình Firebase (project aoe-ranking). Dùng cho web (leaderboard vẫn đọc JSON tĩnh,
 // Firebase chỉ dùng cho tính năng Giải đấu qua Realtime Database).
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
-import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class DefaultFirebaseOptions {
-  static FirebaseOptions get currentPlatform {
-    if (kIsWeb) return web;
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-      case TargetPlatform.iOS:
-      case TargetPlatform.macOS:
-      case TargetPlatform.windows:
-      case TargetPlatform.linux:
-      case TargetPlatform.fuchsia:
-        return web;
-    }
-  }
+  /// `null` = nền tảng này chưa đăng ký trong Firebase console -> main.dart bỏ
+  /// qua initializeApp. Bảng xếp hạng vẫn chạy (đọc JSON tĩnh), chỉ Giải đấu
+  /// hiện "không kết nối được máy chủ".
+  ///
+  /// TUYỆT ĐỐI không mượn tạm cấu hình `web` cho iOS/Android: SDK native kiểm
+  /// định dạng `appId` rồi ném NSException, mà try/catch của Dart KHÔNG bắt
+  /// được -> app crash ngay khi mở. Muốn bật Giải đấu trên iOS: đăng ký app
+  /// iOS (bundle com.jvbcorp.aoeRanking) trong Firebase console, thêm
+  /// `static const FirebaseOptions ios = ...` rồi trả nó ở đây.
+  static FirebaseOptions? get currentPlatform => kIsWeb ? web : null;
 
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyCQJ4zKr01HHc-kB2rFt5JJWr4feNmWSCw',

@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/url_history.dart';
 import '../../../core/widgets/message_view.dart';
 import '../../../core/widgets/selector_chip.dart';
 import '../../tournament/pages/tournament_detail_page.dart';
@@ -65,6 +66,8 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
 
   // Link chia sẻ dạng ?t=<id giải> -> mở thẳng trang chi tiết giải đó
   // (sau khi bảng xếp hạng tải xong để có danh sách thành viên).
+  // Chèn thêm trang danh sách giải vào stack để bấm Back là về danh sách,
+  // và trả URL về địa chỉ gốc ngay khi đã xử lý link.
   void _maybeOpenTournamentLink(Leaderboard board) {
     if (_deepLinkHandled) return;
     final tid = Uri.base.queryParameters['t'];
@@ -72,11 +75,18 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
     _deepLinkHandled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // Xoá ?t=... khỏi thanh địa chỉ (giữ nguyên scheme/host/path).
+      replaceUrl(Uri.base.toString().split('?').first.split('#').first);
       try {
-        Navigator.of(context).push(MaterialPageRoute(
+        final service = TournamentService();
+        final nav = Navigator.of(context);
+        nav.push(MaterialPageRoute(
+          builder: (_) => TournamentsPage(roster: board.members),
+        ));
+        nav.push(MaterialPageRoute(
           builder: (_) => TournamentDetailPage(
             tournamentId: tid,
-            service: TournamentService(),
+            service: service,
             roster: board.members,
           ),
         ));

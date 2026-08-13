@@ -34,10 +34,10 @@ List<Member> roster() => [
         ),
     ];
 
-// Text các ô tên đội (bỏ 2 ô đầu: Tên giải + PIN).
+// Text các ô tên đội (bỏ 5 ô đầu: Tên giải + PIN + 3 ô tiền thưởng).
 List<String> teamNameTexts(WidgetTester tester) {
   final fields = tester.widgetList<TextField>(find.byType(TextField)).toList();
-  return [for (final f in fields.skip(2)) f.controller!.text];
+  return [for (final f in fields.skip(5)) f.controller!.text];
 }
 
 void main() {

@@ -328,8 +328,6 @@ class _ComparisonTable extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   p.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: _isViewer(p) ? AppColors.gold : Colors.white,
@@ -339,8 +337,7 @@ class _ComparisonTable extends StatelessWidget {
                 ),
                 Text(
                   civName(p.empiresType),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
                   style:
                       const TextStyle(color: Colors.white38, fontSize: 10),
                 ),

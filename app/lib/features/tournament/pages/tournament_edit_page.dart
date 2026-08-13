@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/money.dart';
 import '../../leaderboard/models/leaderboard.dart';
 import '../logic/tournament_edit.dart';
 import '../models/tournament.dart';
 import '../services/tournament_service.dart';
 import '../widgets/member_picker.dart';
 
-/// Sửa đội & bảng sau khi giải đã tạo: đổi tên đội, đổi thành viên,
+/// Sửa giải sau khi đã tạo: tên giải, tiền thưởng, tên đội, thành viên,
 /// chuyển đội sang bảng khác. Trang này chỉ mở được sau khi qua PIN
 /// (từ trang chi tiết giải).
 class TournamentEditPage extends StatefulWidget {
@@ -41,6 +42,10 @@ class _EditTeam {
 
 class _TournamentEditPageState extends State<TournamentEditPage> {
   late final List<_EditTeam> _teams;
+  final _name = TextEditingController();
+  // Tiền thưởng theo hạng: nhất / nhì / ba.
+  final List<TextEditingController> _prizes =
+      List.generate(3, (_) => TextEditingController());
   bool _saving = false;
 
   Tournament get t => widget.tournament;
@@ -50,6 +55,11 @@ class _TournamentEditPageState extends State<TournamentEditPage> {
   @override
   void initState() {
     super.initState();
+    _name.text = t.name;
+    for (var i = 0; i < 3; i++) {
+      final v = i < t.prizes.length ? t.prizes[i] : 0;
+      if (v > 0) _prizes[i].text = '$v';
+    }
     _teams = [
       for (final team in t.teams)
         _EditTeam(team.id, team.name, [...team.memberUuids],
@@ -59,6 +69,10 @@ class _TournamentEditPageState extends State<TournamentEditPage> {
 
   @override
   void dispose() {
+    _name.dispose();
+    for (final c in _prizes) {
+      c.dispose();
+    }
     for (final e in _teams) {
       e.dispose();
     }
@@ -104,6 +118,7 @@ class _TournamentEditPageState extends State<TournamentEditPage> {
   }
 
   String? _validate() {
+    if (_name.text.trim().isEmpty) return 'Chưa nhập tên giải';
     final allUuids = <String>{};
     for (final e in _teams) {
       if (e.nameCtrl.text.trim().isEmpty) return 'Có đội chưa có tên';
@@ -180,8 +195,12 @@ class _TournamentEditPageState extends State<TournamentEditPage> {
     if (!mounted) return;
     setState(() => _saving = true);
     try {
-      await widget.service
-          .save(applyTeamEdits(t, teams: newTeams, groups: newGroups));
+      final updated = applyTeamEdits(t, teams: newTeams, groups: newGroups)
+          .copyWith(
+        name: _name.text.trim(),
+        prizes: [for (final c in _prizes) parseMoney(c.text)],
+      );
+      await widget.service.save(updated);
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
@@ -206,12 +225,35 @@ class _TournamentEditPageState extends State<TournamentEditPage> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Text(t.name,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900)),
-              const SizedBox(height: 4),
+              TextField(
+                controller: _name,
+                style: const TextStyle(color: Colors.white),
+                decoration: _dec('Tên giải'),
+              ),
+              const SizedBox(height: 14),
+              const Text('Tiền thưởng (đ) — để trống nếu không có',
+                  style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  for (var i = 0; i < 3; i++) ...[
+                    if (i > 0) const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _prizes[i],
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 14),
+                        decoration: _dec(const ['🥇 Nhất', '🥈 Nhì', '🥉 Ba'][i]),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 14),
               const Text(
                 'Đổi tên đội / thành viên: giữ nguyên lịch và kết quả. '
                 'Chuyển đội sang bảng khác: lịch bảng liên quan được tạo lại.',
@@ -240,6 +282,15 @@ class _TournamentEditPageState extends State<TournamentEditPage> {
     );
   }
 
+  InputDecoration _dec(String label) => InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.white54),
+        enabledBorder: const OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.white24)),
+        focusedBorder: const OutlineInputBorder(
+            borderSide: BorderSide(color: AppColors.gold)),
+      );
+
   Widget _teamCard(_EditTeam e) {
     final names = e.memberUuids.map(_nameOf).join(', ');
     return Container(
@@ -256,14 +307,7 @@ class _TournamentEditPageState extends State<TournamentEditPage> {
           TextField(
             controller: e.nameCtrl,
             style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-              labelText: 'Tên đội',
-              labelStyle: TextStyle(color: Colors.white54),
-              enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white24)),
-              focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.gold)),
-            ),
+            decoration: _dec('Tên đội'),
           ),
           const SizedBox(height: 8),
           Row(

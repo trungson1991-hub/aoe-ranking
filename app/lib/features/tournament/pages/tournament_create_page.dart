@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/money.dart';
 import '../../leaderboard/models/leaderboard.dart';
 import '../data/fun_team_names.dart';
 import '../logic/group_assign.dart';
@@ -35,6 +36,9 @@ class TournamentCreatePage extends StatefulWidget {
 class _TournamentCreatePageState extends State<TournamentCreatePage> {
   final _name = TextEditingController();
   final _pin = TextEditingController();
+  // Tiền thưởng theo hạng: nhất / nhì / ba (tuỳ chọn).
+  final List<TextEditingController> _prizes =
+      List.generate(3, (_) => TextEditingController());
   String _format = '1v1';
   int _firstTo = 1;
   String _structure = kStructureRoundRobin;
@@ -90,6 +94,9 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
   void dispose() {
     _name.dispose();
     _pin.dispose();
+    for (final c in _prizes) {
+      c.dispose();
+    }
     for (final t in _teams) {
       t.dispose();
     }
@@ -206,6 +213,7 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
             structure: _structure,
             advancePerGroup: advance,
             createdAt: now,
+            prizes: [for (final c in _prizes) parseMoney(c.text)],
             teams: teams,
             groups: groups,
             groupFixtures: gfx,
@@ -245,6 +253,24 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
                 controller: _pin,
                 style: const TextStyle(color: Colors.white),
                 decoration: _dec('PIN của giải (dùng để nhập kết quả / xoá)'),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  for (var i = 0; i < 3; i++) ...[
+                    if (i > 0) const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _prizes[i],
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 14),
+                        decoration: _dec(
+                            const ['🥇 Nhất (đ)', '🥈 Nhì (đ)', '🥉 Ba (đ)'][i]),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 14),
               Row(

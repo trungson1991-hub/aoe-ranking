@@ -10,7 +10,15 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { TEAM, WINDOW_MONTHS, TIERS, GAME_CODE } from "./team.mjs";
+import {
+  TEAM,
+  WINDOW_MONTHS,
+  TIERS,
+  GAME_CODE,
+  ACTIVITY_WEIGHT,
+  TOURNEY_BONUS,
+  FIREBASE_DB_URL,
+} from "./team.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const OUT_FILE = path.join(ROOT, "app", "web", "data", "leaderboard.json");
@@ -258,23 +266,147 @@ function applyElo(bucketOf, m, ps) {
   }
 }
 
-function buildLeaderboard(info, meta) {
-  // ELO hiển thị = rating làm tròn, không cộng/trừ theo số trận.
-  const round = (b) => ({
-    elo: Math.round(b.rating),
+// ---- Giải đấu: cộng ELO cho vô địch / á quân các giải ĐÃ KẾT THÚC ----
+// Logic bảng điểm / nhánh KO port 1-1 từ app (lib/features/tournament/logic/).
+
+function fxDecided(f, firstTo) {
+  return (f.score_a ?? 0) >= firstTo || (f.score_b ?? 0) >= firstTo;
+}
+
+function fxWinner(f, firstTo) {
+  if ((f.score_a ?? 0) >= firstTo) return f.a_id ?? null;
+  if ((f.score_b ?? 0) >= firstTo) return f.b_id ?? null;
+  return null;
+}
+
+// Bảng xếp hạng vòng tròn: thắng > hiệu số ván > tổng ván thắng.
+function tournStandings(t, teamIds, fixtures) {
+  const rows = new Map();
+  for (const id of teamIds ?? []) {
+    rows.set(id, { id, wins: 0, gameWon: 0, gameLost: 0 });
+  }
+  for (const f of fixtures ?? []) {
+    const a = rows.get(f.a_id);
+    const b = rows.get(f.b_id);
+    if (!a || !b || !fxDecided(f, t.first_to)) continue;
+    a.gameWon += f.score_a ?? 0;
+    a.gameLost += f.score_b ?? 0;
+    b.gameWon += f.score_b ?? 0;
+    b.gameLost += f.score_a ?? 0;
+    if (fxWinner(f, t.first_to) === f.a_id) a.wins++;
+    else b.wins++;
+  }
+  return [...rows.values()].sort(
+    (x, y) =>
+      y.wins - x.wins ||
+      y.gameWon - y.gameLost - (x.gameWon - x.gameLost) ||
+      y.gameWon - x.gameWon
+  );
+}
+
+// Suy đội thắng chung kết từ nhánh KO (id dạng ko_r{round}_m{match}).
+function koResult(t) {
+  const fixtures = t.ko_fixtures ?? [];
+  if (!fixtures.length) return null;
+  const byId = new Map(fixtures.map((f) => [f.id, f]));
+  const roundSize = new Map();
+  for (const f of fixtures) {
+    const m = /^ko_r(\d+)_m(\d+)$/.exec(f.id ?? "");
+    if (m) roundSize.set(+m[1], Math.max(roundSize.get(+m[1]) ?? 0, +m[2] + 1));
+  }
+  if (!roundSize.size) return null;
+  const maxRound = Math.max(...roundSize.keys());
+  if (roundSize.get(maxRound) !== 1) return null;
+  const winners = new Map();
+  let final_ = null;
+  for (let r = 0; r <= maxRound; r++) {
+    for (let m = 0; m < (roundSize.get(r) ?? 0); m++) {
+      const f = byId.get(`ko_r${r}_m${m}`);
+      if (!f) continue;
+      const aId = r === 0 ? f.a_id ?? null : winners.get(`${r - 1}_${2 * m}`) ?? null;
+      const bId = r === 0 ? f.b_id ?? null : winners.get(`${r - 1}_${2 * m + 1}`) ?? null;
+      // Bye: 1 bên trống -> bên kia đi tiếp.
+      let w = null;
+      if (aId != null && bId == null) w = aId;
+      else if (bId != null && aId == null) w = bId;
+      else if (aId != null && bId != null) {
+        if ((f.score_a ?? 0) >= t.first_to) w = aId;
+        else if ((f.score_b ?? 0) >= t.first_to) w = bId;
+      }
+      winners.set(`${r}_${m}`, w);
+      if (r === maxRound && m === 0) final_ = { aId, bId, w };
+    }
+  }
+  if (!final_?.w) return null;
+  const runner = final_.w === final_.aId ? final_.bId : final_.aId;
+  return { championId: final_.w, runnerUpId: runner ?? null };
+}
+
+// Vô địch + á quân của 1 giải.
+function tournamentPodium(t) {
+  if (t.structure === "groups_knockout") return koResult(t);
+  // round_robin: bảng duy nhất; chỉ tính khi đã có trận đấu xong.
+  const g = (t.groups ?? [])[0];
+  if (!g) return null;
+  const st = tournStandings(t, g.team_ids, t.group_fixtures);
+  if (!st.length || !st.some((r) => r.wins > 0)) return null;
+  return { championId: st[0]?.id ?? null, runnerUpId: st[1]?.id ?? null };
+}
+
+// Điểm cộng theo uuid: { total, modes: { '1v1': n, ... } }.
+// Lỗi mạng/Firebase -> trả rỗng, KHÔNG làm hỏng lần cập nhật.
+async function fetchTournamentBonuses() {
+  const bonuses = new Map();
+  let finished = 0;
+  try {
+    const res = await fetchWithRetry(`${FIREBASE_DB_URL}/tournaments.json`, {
+      retries: 2,
+    });
+    const data = await res.json();
+    for (const t of Object.values(data ?? {})) {
+      if ((t?.status ?? "active") !== "finished") continue;
+      const podium = tournamentPodium(t);
+      if (!podium) continue;
+      finished++;
+      const award = (teamId, points) => {
+        const team = (t.teams ?? []).find((x) => x?.id === teamId);
+        for (const uuid of team?.member_uuids ?? []) {
+          const b = bonuses.get(uuid) ?? { total: 0, modes: {} };
+          b.total += points;
+          if (t.format) b.modes[t.format] = (b.modes[t.format] ?? 0) + points;
+          bonuses.set(uuid, b);
+        }
+      };
+      if (podium.championId) award(podium.championId, TOURNEY_BONUS.champion);
+      if (podium.runnerUpId) award(podium.runnerUpId, TOURNEY_BONUS.runnerUp);
+    }
+  } catch (e) {
+    console.log(`Bỏ qua điểm giải đấu (không đọc được Firebase): ${e.message}`);
+  }
+  return { bonuses, finished };
+}
+
+function buildLeaderboard(info, meta, tournBonuses) {
+  // ELO hiển thị = rating + độ quen tay (√số trận, trọng số nhỏ)
+  //              + điểm thưởng giải đấu (nếu có).
+  const round = (b, extra = 0) => ({
+    elo: Math.round(b.rating + ACTIVITY_WEIGHT * Math.sqrt(b.games) + extra),
     games: b.games,
     wins: b.wins,
     losses: b.losses,
   });
   const members = TEAM.map((u) => {
+    const bonus = tournBonuses?.get(u);
     const modes = {};
-    for (const k of MODES) modes[k] = round(info[u].modes[k]);
+    for (const k of MODES) {
+      modes[k] = round(info[u].modes[k], bonus?.modes[k] ?? 0);
+    }
     return {
       user_uuid: u,
       name: info[u].name || u.slice(0, 8),
       avatar_url: info[u].avatar_url || "",
       last_played: info[u].last_played,
-      total: round(info[u].total),
+      total: round(info[u].total, bonus?.total ?? 0),
       modes,
     };
   });
@@ -288,10 +420,11 @@ async function main() {
   startDate.setMonth(startDate.getMonth() - WINDOW_MONTHS);
   const START_EPOCH = Math.floor(startDate.getTime() / 1000);
 
-  // Fetch song song: lịch sử trận + hồ sơ (tên/avatar) của mọi thành viên.
-  const [lists, profileList] = await Promise.all([
+  // Fetch song song: lịch sử trận + hồ sơ (tên/avatar) + điểm thưởng giải đấu.
+  const [lists, profileList, tourney] = await Promise.all([
     Promise.all(TEAM.map((uuid) => fetchUserMatches(uuid, START_EPOCH))),
     Promise.all(TEAM.map((uuid) => fetchProfile(uuid))),
+    fetchTournamentBonuses(),
   ]);
   const union = new Map();
   for (const list of lists) for (const m of list) union.set(m.game_id, m);
@@ -335,19 +468,24 @@ async function main() {
     }
   }
 
-  const board = buildLeaderboard(info, {
-    updated_at: Math.floor(Date.now() / 1000),
-    start_epoch: START_EPOCH,
-    window_months: WINDOW_MONTHS,
-    total_matches: union.size,
-    internal_matches: eligible.length,
-  });
+  const board = buildLeaderboard(
+    info,
+    {
+      updated_at: Math.floor(Date.now() / 1000),
+      start_epoch: START_EPOCH,
+      window_months: WINDOW_MONTHS,
+      total_matches: union.size,
+      internal_matches: eligible.length,
+    },
+    tourney.bonuses
+  );
   fs.mkdirSync(path.dirname(OUT_FILE), { recursive: true });
   fs.writeFileSync(OUT_FILE, JSON.stringify(board, null, 2));
 
   console.log(
     `Performance ELO — cửa sổ ${WINDOW_MONTHS} tháng: ${eligible.length} trận, ` +
-      `từ ${startDate.toISOString().slice(0, 10)}`
+      `từ ${startDate.toISOString().slice(0, 10)}; ` +
+      `${tourney.finished} giải đã kết thúc được cộng điểm`
   );
 }
 

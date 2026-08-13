@@ -130,8 +130,6 @@ class _TeamScoreRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
                 color: Colors.white,
                 fontSize: 14,
@@ -139,8 +137,6 @@ class _TeamScoreRow extends StatelessWidget {
         if (members.isNotEmpty) ...[
           const SizedBox(height: 2),
           Text('👤 ${members.join(', ')}',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: Colors.white54, fontSize: 12)),
         ],
         const SizedBox(height: 6),

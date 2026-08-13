@@ -21,9 +21,15 @@ Web tính điểm ELO riêng cho các thành viên team dựa trên API lịch s
   cập nhật `Δ = K·(S − E)` với `E` là kỳ vọng theo ELO trung bình 2 đội.
   Thắng/thua lấy từ `statistics.result` (KHÔNG dùng `victory_team_idx` — field này luôn = 0).
 - **K thích ứng** (mỗi bảng): 10 trận đầu `K = 40` — định hạng nhanh về đúng trình độ;
-  từ trận 11 `K = 24` — ổn định, ít nhiễu. Không cộng/trừ điểm theo số trận: ELO chỉ đo
-  trình độ, không đo độ chăm. Dưới 10 trận web hiển thị nhãn **"ELO tạm"** (chưa đủ tin cậy);
-  chưa có trận ở bảng nào thì bảng đó hiện "—" và xếp cuối.
+  từ trận 11 `K = 24` — ổn định, ít nhiễu. Dưới 10 trận web hiển thị nhãn **"ELO tạm"**
+  (chưa đủ tin cậy); chưa có trận ở bảng nào thì bảng đó hiện "—" và xếp cuối.
+- **Độ quen tay** (trọng số nhỏ): ELO hiển thị cộng thêm `ACTIVITY_WEIGHT × √games`
+  (mặc định 1: 100 trận → +10, 200 trận → +14). Cấu hình trong `scripts/team.mjs`.
+- **Điểm giải đấu** (trọng số nhỏ): các giải trên web **đã bấm "Kết thúc giải"** — mỗi
+  thành viên đội vô địch **+15**, á quân **+7** điểm ELO (`TOURNEY_BONUS` trong
+  `scripts/team.mjs`), cộng vào bảng Tổng và bảng thể loại của giải (1v1/2v2/...).
+  Script đọc kết quả giải từ Firebase RTDB qua REST; Firebase lỗi thì bỏ qua phần này,
+  không ảnh hưởng cập nhật ELO.
 - Xếp hạng theo ELO giảm dần (hạng 1, 2, 3...).
 - Ngoài ELO **Tổng**, còn tính ELO **riêng cho từng thể loại 1v1 / 2v2 / 3v3 / 4v4** (chỉ trận
   cân người; trận lệch như 3v4 chỉ tính vào Tổng). Web có nút chọn chế độ để xem từng bảng.

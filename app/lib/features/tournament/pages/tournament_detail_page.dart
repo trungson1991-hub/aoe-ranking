@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/money.dart';
 import '../../leaderboard/models/leaderboard.dart';
 import '../logic/fixture_edit.dart';
 import '../logic/share_link.dart';
@@ -233,6 +234,7 @@ class _BodyState extends State<_Body> {
             const SizedBox(height: 4),
             Text('${t.format} · chạm ${t.firstTo} · ${t.teams.length} đội',
                 style: const TextStyle(color: Colors.white54, fontSize: 13)),
+            ..._prizeRow(),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -262,6 +264,24 @@ class _BodyState extends State<_Body> {
         ),
       ),
     );
+  }
+
+  /// Dòng tiền thưởng (chỉ hiện các hạng có tiền).
+  List<Widget> _prizeRow() {
+    const medals = ['🥇', '🥈', '🥉'];
+    final parts = <String>[
+      for (var i = 0; i < t.prizes.length && i < 3; i++)
+        if (t.prizes[i] > 0) '${medals[i]} ${formatMoney(t.prizes[i])}',
+    ];
+    if (parts.isEmpty) return const [];
+    return [
+      const SizedBox(height: 4),
+      Text(
+        'Giải thưởng:  ${parts.join('   ')}',
+        style: const TextStyle(
+            color: AppColors.gold, fontSize: 13, fontWeight: FontWeight.w700),
+      ),
+    ];
   }
 
   /// Menu hành động (⋮): sửa đội, kết thúc, huỷ, mở lại, xoá — tuỳ trạng thái.
@@ -668,14 +688,11 @@ class _Standings extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(rows[i].team.name,
-                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w600)),
                     if (rows[i].team.memberNames.isNotEmpty)
                       Text(rows[i].team.memberNames.join(', '),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                               color: Colors.white38, fontSize: 10)),
                   ],

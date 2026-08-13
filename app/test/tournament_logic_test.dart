@@ -1,3 +1,4 @@
+import 'package:aoe_ranking/core/utils/money.dart';
 import 'package:aoe_ranking/features/tournament/data/fun_team_names.dart';
 import 'package:aoe_ranking/features/tournament/logic/fixture_edit.dart';
 import 'package:aoe_ranking/features/tournament/logic/group_assign.dart';
@@ -329,6 +330,30 @@ void main() {
       expect(out.groupFixtures.where((f) => f.stage == 'Bảng B'), isEmpty);
       // KO bị xoá vì seed không còn đúng.
       expect(out.koFixtures, isEmpty);
+    });
+  });
+
+  group('money', () {
+    test('format kiểu VN và parse bỏ ký tự thừa', () {
+      expect(formatMoney(500000), '500.000đ');
+      expect(formatMoney(1500000), '1.500.000đ');
+      expect(formatMoney(0), '0đ');
+      expect(parseMoney('500.000'), 500000);
+      expect(parseMoney('1,5tr'), 15); // chỉ giữ chữ số
+      expect(parseMoney(''), 0);
+    });
+  });
+
+  group('Tournament prizes', () {
+    test('round-trip qua toMap/fromDoc, giải cũ mặc định rỗng', () {
+      final t = tourn(
+        teamIds: ['a', 'b'],
+        groups: [const GroupDef(name: 'A', teamIds: ['a', 'b'])],
+        groupFixtures: [fx('g', 'A', 'a', 'b')],
+      ).copyWith(prizes: [500000, 200000, 100000]);
+      final parsed = Tournament.fromDoc('x', t.toMap());
+      expect(parsed.prizes, [500000, 200000, 100000]);
+      expect(Tournament.fromDoc('x', {'name': 'cũ'}).prizes, isEmpty);
     });
   });
 

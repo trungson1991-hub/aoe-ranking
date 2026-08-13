@@ -161,8 +161,8 @@ class _SummaryCard extends StatelessWidget {
     final avgK = matches.isEmpty ? 0 : (kills / matches.length).round();
     final avgD = matches.isEmpty ? 0 : (deaths / matches.length).round();
 
-    // matches sắp mới nhất trước; lấy 10 trận gần nhất, hiển thị cũ -> mới.
-    final recent = matches.take(10).toList().reversed.toList();
+    // matches sắp mới nhất trước; hiển thị MỚI NHẤT bên trái, cũ dần về phải.
+    final recent = matches.take(10).toList();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -237,9 +237,12 @@ class _SummaryCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      for (final m in recent) _formDot(m.win),
+                      const Text('mới nhất',
+                          style:
+                              TextStyle(color: Colors.white24, fontSize: 10)),
                       const SizedBox(width: 6),
-                      const Text('→ mới nhất',
+                      for (final m in recent) _formDot(m.win),
+                      const Text('→ cũ',
                           style:
                               TextStyle(color: Colors.white24, fontSize: 10)),
                     ],
@@ -393,8 +396,6 @@ class _MatchTile extends StatelessWidget {
                           ],
                         ],
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 13),
                     ),
                     const SizedBox(height: 4),

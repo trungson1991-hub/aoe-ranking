@@ -45,15 +45,12 @@ class FixtureCard extends StatelessWidget {
         children: [
           Text(name,
               textAlign: textAlign,
-              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                   color: won ? AppColors.win : Colors.white,
                   fontWeight: FontWeight.w700)),
           if (members.isNotEmpty)
             Text(members.join(', '),
                 textAlign: textAlign,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: Colors.white38, fontSize: 11)),
         ],
       ),

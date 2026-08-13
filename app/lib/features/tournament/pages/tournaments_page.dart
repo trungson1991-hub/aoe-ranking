@@ -103,7 +103,6 @@ class _TournamentTile extends StatelessWidget {
           children: [
             Flexible(
               child: Text(t.name,
-                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                       color: Colors.white, fontWeight: FontWeight.w800)),
             ),

@@ -117,6 +117,7 @@ class Tournament {
   final int advancePerGroup; // số đội đi tiếp mỗi bảng (groups_knockout)
   final int createdAt; // epoch giây
   final String status; // kStatusActive | kStatusFinished | kStatusCancelled
+  final List<int> prizes; // tiền thưởng (đ) theo hạng: [nhất, nhì, ba]
   final List<TournTeam> teams;
   final List<GroupDef> groups;
   final List<Fixture> groupFixtures; // vòng bảng / vòng tròn
@@ -132,6 +133,7 @@ class Tournament {
     required this.advancePerGroup,
     required this.createdAt,
     this.status = kStatusActive,
+    this.prizes = const [],
     required this.teams,
     required this.groups,
     required this.groupFixtures,
@@ -153,6 +155,7 @@ class Tournament {
   Tournament copyWith({
     String? name,
     String? status,
+    List<int>? prizes,
     List<TournTeam>? teams,
     List<GroupDef>? groups,
     List<Fixture>? groupFixtures,
@@ -168,6 +171,7 @@ class Tournament {
         advancePerGroup: advancePerGroup,
         createdAt: createdAt,
         status: status ?? this.status,
+        prizes: prizes ?? this.prizes,
         teams: teams ?? this.teams,
         groups: groups ?? this.groups,
         groupFixtures: groupFixtures ?? this.groupFixtures,
@@ -183,6 +187,7 @@ class Tournament {
         'advance_per_group': advancePerGroup,
         'created_at': createdAt,
         'status': status,
+        'prizes': prizes,
         'teams': teams.map((e) => e.toMap()).toList(),
         'groups': groups.map((e) => e.toMap()).toList(),
         'group_fixtures': groupFixtures.map((e) => e.toMap()).toList(),
@@ -207,6 +212,9 @@ class Tournament {
       createdAt:
           (m['created_at'] is num) ? (m['created_at'] as num).toInt() : 0,
       status: (m['status'] ?? kStatusActive) as String,
+      prizes: ((m['prizes'] as List?) ?? const [])
+          .map((e) => (e is num) ? e.toInt() : 0)
+          .toList(),
       teams: list('teams', TournTeam.fromMap),
       groups: list('groups', GroupDef.fromMap),
       groupFixtures: list('group_fixtures', Fixture.fromMap),

@@ -1,19 +1,26 @@
 import 'package:aoe_ranking/firebase_options.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('nền tảng native không được mượn cấu hình web', () {
-    // Test chạy trên máy chủ (không phải web) -> phải là null.
-    // Nếu ai đó trả tạm `web` cho iOS/Android, SDK native sẽ ném NSException
-    // lúc initializeApp và app crash ngay khi mở — Dart try/catch không cứu
-    // được, nên phải chặn ở đây.
-    expect(kIsWeb, isFalse, reason: 'test này chỉ có nghĩa khi chạy native');
-    expect(DefaultFirebaseOptions.currentPlatform, isNull);
+  test('mỗi nền tảng dùng đúng appId của nó', () {
+    // Bug từng gặp: mượn cấu hình web cho iOS -> SDK native thấy appId dạng
+    // `:web:` là sai định dạng nên ném NSException, app crash ngay khi mở và
+    // try/catch của Dart không cứu được. Ràng buộc này chặn từ gốc.
+    expect(DefaultFirebaseOptions.web.appId, contains(':web:'));
+    expect(DefaultFirebaseOptions.ios.appId, contains(':ios:'));
   });
 
-  test('cấu hình web vẫn là appId dạng web', () {
-    expect(DefaultFirebaseOptions.web.appId, contains(':web:'));
-    expect(DefaultFirebaseOptions.web.projectId, 'aoe-ranking');
+  test('iOS đủ thông tin để Giải đấu chạy', () {
+    const ios = DefaultFirebaseOptions.ios;
+    // Phải khớp PRODUCT_BUNDLE_IDENTIFIER trong Xcode, lệch là Firebase từ chối.
+    expect(ios.iosBundleId, 'com.jvbcorp.aoeRanking');
+    expect(ios.projectId, 'aoe-ranking');
+    // Thiếu databaseURL thì FirebaseDatabase không biết trỏ về đâu.
+    expect(ios.databaseURL, isNotEmpty);
+  });
+
+  test('nền tảng chưa đăng ký trả null chứ không mượn cấu hình khác', () {
+    // Test chạy trên máy chủ (macOS): không phải web, không phải iOS.
+    expect(DefaultFirebaseOptions.currentPlatform, isNull);
   });
 }

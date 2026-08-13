@@ -14,12 +14,26 @@ const _blueTeam = Color(0xFF60A5FA);
 // Một chỉ số so sánh: nhãn + cách lấy giá trị + chiều tốt (thấp hơn = tốt?).
 class _Metric {
   const _Metric(this.icon, this.label, this.get,
-      {this.lowerBetter = false, this.suffix = ''});
+      {this.lowerBetter = false, this.suffix = '', this.time = false})
+      // Thanh tỉ lệ của mốc thời gian chia cho mốc tốt nhất, nên mốc tốt nhất
+      // BẮT BUỘC là nhỏ nhất; nếu không tỉ lệ vượt 100 -> Expanded flex âm ->
+      // vỡ cả trang. `_metrics` là const nên sai là báo lúc biên dịch.
+      : assert(!time || lowerBetter, 'mốc thời gian: sớm hơn = tốt hơn');
   final String icon;
   final String label;
   final int Function(PlayerStat) get;
   final bool lowerBetter;
   final String suffix;
+
+  /// Giá trị là mốc thời gian trong trận (ms): hiện dạng m:ss, và 0 nghĩa là
+  /// "chưa đạt" chứ không phải mốc sớm nhất — phải loại khỏi việc so sánh.
+  final bool time;
+}
+
+/// Mốc đồng hồ trong trận (ms) -> "m:ss".
+String _clock(int ms) {
+  final s = ms ~/ 1000;
+  return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
 }
 
 const List<_Metric> _metrics = [
@@ -33,6 +47,9 @@ const List<_Metric> _metrics = [
   _Metric('🗺️', 'Mở bản đồ', _explore, suffix: '%'),
   _Metric('🤝', 'Bơm đồ', _tribute),
   _Metric('⏫', 'Đời đạt', _age),
+  _Metric('⏱️', 'Lên đời 2', _age2Time, lowerBetter: true, time: true),
+  _Metric('⏱️', 'Lên đời 3', _age3Time, lowerBetter: true, time: true),
+  _Metric('⏱️', 'Lên đời 4', _age4Time, lowerBetter: true, time: true),
 ];
 
 int _kills(PlayerStat p) => p.kills;
@@ -45,6 +62,9 @@ int _tech(PlayerStat p) => p.technologies;
 int _explore(PlayerStat p) => p.exploration;
 int _tribute(PlayerStat p) => p.tribute;
 int _age(PlayerStat p) => p.age;
+int _age2Time(PlayerStat p) => p.age2Time;
+int _age3Time(PlayerStat p) => p.age3Time;
+int _age4Time(PlayerStat p) => p.age4Time;
 
 class MatchDetailPage extends StatelessWidget {
   const MatchDetailPage({
@@ -405,10 +425,59 @@ class _ComparisonTable extends StatelessWidget {
       {required bool striped}) {
     if (players.isEmpty) return const SizedBox.shrink();
     final values = [for (final p in players) m.get(p)];
-    final maxV = values.fold(0, (a, b) => a > b ? a : b);
-    final minV = values.reduce((a, b) => a < b ? a : b);
+    // Với mốc thời gian, 0 = chưa lên tới đời đó. Nếu đem so bình thường thì
+    // người không lên đời lại thành người "lên nhanh nhất".
+    final ranked = m.time ? [for (final v in values) if (v > 0) v] : values;
+    final maxV = ranked.fold(0, (a, b) => a > b ? a : b);
+    final minV = ranked.isEmpty ? 0 : ranked.reduce((a, b) => a < b ? a : b);
     final best = m.lowerBetter ? minV : maxV;
-    final allEqual = maxV == minV;
+    // Bằng nhau hết thì không tô sáng ai. Riêng mốc thời gian: chỉ coi là bằng
+    // nhau khi MỌI người đều đạt mốc — lên được đời mà người khác chưa lên tới
+    // vẫn đáng tô sáng. Không ai đạt -> cả hàng là "—", không tô ô nào.
+    final allEqual = ranked.isEmpty ||
+        (maxV == minV && ranked.length == values.length);
+
+    // Thanh tỉ lệ 0..100. Mốc thời gian đảo chiều: lên đời sớm nhất mới là
+    // thanh dài nhất, nếu không thanh dài sẽ tôn người lên đời chậm nhất.
+    int fraction(int v) {
+      if (m.time) return v <= 0 ? 0 : best * 100 ~/ v;
+      return maxV == 0 ? 0 : v * 100 ~/ maxV;
+    }
+
+    Widget cell(int v) {
+      final isBest = !allEqual && v == best;
+      final flex = fraction(v);
+      final color = isBest ? AppColors.win : Colors.white24;
+      return Column(
+        children: [
+          Text(
+            m.time ? (v > 0 ? _clock(v) : '—') : '$v${m.suffix}',
+            style: TextStyle(
+              color: isBest ? AppColors.win : Colors.white70,
+              fontSize: 13,
+              fontWeight: isBest ? FontWeight.w900 : FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 3),
+          // Thanh tỉ lệ so với người tốt nhất trong hàng.
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: SizedBox(
+              height: 3,
+              child: Row(
+                children: [
+                  Expanded(flex: flex, child: Container(color: color)),
+                  Expanded(
+                    flex: flex == 0 ? 1 : 100 - flex,
+                    child: const SizedBox(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -430,48 +499,7 @@ class _ComparisonTable extends StatelessWidget {
                   ? AppColors.gold.withValues(alpha: 0.06)
                   : null,
               padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Column(
-                children: [
-                  Text(
-                    '${values[i]}${m.suffix}',
-                    style: TextStyle(
-                      color: !allEqual && values[i] == best
-                          ? AppColors.win
-                          : Colors.white70,
-                      fontSize: 13,
-                      fontWeight: !allEqual && values[i] == best
-                          ? FontWeight.w900
-                          : FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  // Thanh tỉ lệ so với giá trị lớn nhất trong hàng.
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(2),
-                    child: SizedBox(
-                      height: 3,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: maxV == 0 ? 0 : (values[i] * 100 ~/ maxV),
-                            child: Container(
-                              color: !allEqual && values[i] == best
-                                  ? AppColors.win
-                                  : Colors.white24,
-                            ),
-                          ),
-                          Expanded(
-                            flex: maxV == 0
-                                ? 1
-                                : 100 - (values[i] * 100 ~/ maxV),
-                            child: const SizedBox(),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              child: cell(values[i]),
             ),
         ],
       ),

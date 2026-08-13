@@ -21,6 +21,13 @@ class PlayerStat {
   final int tribute; // bơm đồ
   final int age; // thời đại đạt được
 
+  // Mốc lên đời theo đồng hồ TRONG trận (ms), 0 = chưa lên tới đời đó.
+  // API đặt tên trường theo tên đời đích chứ không theo số: stone = đời 2,
+  // bronze = đời 3, steel = đời 4 (khớp với `age`: age 3 luôn có đúng 2 mốc).
+  final int age2Time;
+  final int age3Time;
+  final int age4Time;
+
   const PlayerStat({
     required this.uuid,
     required this.name,
@@ -37,6 +44,9 @@ class PlayerStat {
     required this.exploration,
     required this.tribute,
     required this.age,
+    this.age2Time = 0,
+    this.age3Time = 0,
+    this.age4Time = 0,
   });
 
   String get label => name.isNotEmpty
@@ -65,6 +75,9 @@ class PlayerStat {
       exploration: _int(s['exploration']),
       tribute: _int(s['tribute_given']),
       age: _int(s['age']),
+      age2Time: _int(s['stone_age_upgraded_time']),
+      age3Time: _int(s['bronze_age_upgraded_time']),
+      age4Time: _int(s['steel_age_upgraded_time']),
     );
   }
 }

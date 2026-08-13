@@ -1,3 +1,4 @@
+import 'package:aoe_ranking/core/theme/app_colors.dart';
 import 'package:aoe_ranking/features/leaderboard/models/leaderboard.dart';
 import 'package:aoe_ranking/features/leaderboard/services/leaderboard_service.dart';
 import 'package:aoe_ranking/features/match_history/models/match_record.dart';
@@ -11,7 +12,11 @@ PlayerStat player(String uuid, String name,
         int color = 1,
         int kills = 0,
         int losses = 0,
-        int gold = 0}) =>
+        int gold = 0,
+        int age = 3,
+        int age2Time = 0,
+        int age3Time = 0,
+        int age4Time = 0}) =>
     PlayerStat(
       uuid: uuid,
       name: name,
@@ -27,7 +32,10 @@ PlayerStat player(String uuid, String name,
       technologies: 14,
       exploration: 45,
       tribute: 0,
-      age: 3,
+      age: age,
+      age2Time: age2Time,
+      age3Time: age3Time,
+      age4Time: age4Time,
     );
 
 /// Trận 2v2: viewer (v1) + đồng đội m1 thắng đối thủ o1, o2.
@@ -79,6 +87,54 @@ void main() {
       // Tổng giết quân mỗi đội trong khối tương quan: Đỏ 50+30=80, Xanh 21+12=33.
       expect(find.text('80'), findsOneWidget);
       expect(find.text('33'), findsOneWidget);
+    });
+
+    testWidgets('mốc lên đời hiện m:ss, chưa lên tới thì để trống',
+        (tester) async {
+      final rec = MatchRecord(
+        createdTime: 1750000000,
+        roomId: 1,
+        red: [
+          player('v1', 'MePlayer',
+              win: true,
+              color: 1,
+              age: 4,
+              age2Time: 586270,
+              age3Time: 760970,
+              age4Time: 2437900),
+        ],
+        blue: [
+          // Chỉ lên tới đời 3 -> mốc đời 4 = 0.
+          player('o1', 'Rival1',
+              win: false,
+              color: 2,
+              age: 3,
+              age2Time: 630685,
+              age3Time: 802555),
+        ],
+        viewerUuid: 'v1',
+        internal: true,
+        ghost: false,
+      );
+      await tester.pumpWidget(MaterialApp(home: MatchDetailPage(record: rec)));
+      for (final label in ['⏱️ Lên đời 2', '⏱️ Lên đời 3', '⏱️ Lên đời 4']) {
+        expect(find.text(label), findsOneWidget);
+      }
+      // ms trên đồng hồ trong trận -> m:ss.
+      expect(find.text('9:46'), findsOneWidget); // 586270
+      expect(find.text('10:30'), findsOneWidget); // 630685
+      expect(find.text('40:37'), findsOneWidget); // 2437900
+
+      Color? colorOf(String t) => tester.widget<Text>(find.text(t)).style?.color;
+      // Lên sớm hơn mới là tốt hơn.
+      expect(colorOf('9:46'), AppColors.win);
+      expect(colorOf('10:30'), isNot(AppColors.win));
+      // Người chưa lên đời 4: ô trống, và KHÔNG được coi là nhanh nhất
+      // (0 là "chưa đạt", không phải mốc sớm nhất).
+      expect(find.text('—'), findsOneWidget);
+      expect(colorOf('—'), isNot(AppColors.win));
+      // ...còn người lên được đời 4 vẫn được tô sáng dù chỉ có một mình.
+      expect(colorOf('40:37'), AppColors.win);
     });
   });
 

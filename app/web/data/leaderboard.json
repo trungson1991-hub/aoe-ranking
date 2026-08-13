@@ -1,9 +1,9 @@
 {
-  "updated_at": 1786612494,
-  "start_epoch": 1770974087,
+  "updated_at": 1786632910,
+  "start_epoch": 1770994499,
   "window_months": 6,
-  "total_matches": 1592,
-  "internal_matches": 521,
+  "total_matches": 1595,
+  "internal_matches": 524,
   "members": [
     {
       "user_uuid": "d6c14b8e-d651-49c6-8287-5a069fe7edbc",
@@ -50,19 +50,19 @@
       "user_uuid": "6747bca9-681b-459c-aa5a-309ef5fee99a",
       "name": "DarkTitan",
       "avatar_url": "https://cdn-data.gtvplus.vn/avatar/avatar_001.png",
-      "last_played": 1786600484,
+      "last_played": 1786622528,
       "total": {
-        "elo": 853,
-        "games": 335,
+        "elo": 855,
+        "games": 336,
         "wins": 153,
-        "losses": 182
+        "losses": 183
       },
       "modes": {
         "1v1": {
-          "elo": 924,
-          "games": 50,
+          "elo": 920,
+          "games": 51,
           "wins": 15,
-          "losses": 35
+          "losses": 36
         },
         "2v2": {
           "elo": 961,
@@ -126,19 +126,19 @@
       "user_uuid": "0b0bb6a4-a2d8-4218-bca0-cd67a242305e",
       "name": "chimsaudm9_8108",
       "avatar_url": "https://cdn-data.gtvplus.vn/avatar/avatar_006.png",
-      "last_played": 1786600912,
+      "last_played": 1786622528,
       "total": {
-        "elo": 877,
-        "games": 361,
+        "elo": 881,
+        "games": 363,
         "wins": 169,
-        "losses": 192
+        "losses": 194
       },
       "modes": {
         "1v1": {
-          "elo": 947,
-          "games": 54,
+          "elo": 938,
+          "games": 56,
           "wins": 23,
-          "losses": 31
+          "losses": 33
         },
         "2v2": {
           "elo": 976,
@@ -283,18 +283,18 @@
       "vip_frame_url": "https://cdn-data.gtvplus.vn/store/item/image/1120/11200191/11200191_12b67fd8-c287-4485-aa2f-1c827e3cdcc3.png",
       "background_url": "https://cdn-data.gtvplus.vn/store/item/image/1130/11301361/11301361_b06f183e-04de-4232-a8c9-dda65a80bcf0.png",
       "effect_url": "https://cdn-data.gtvplus.vn/store/item/image/1140/11400025/11400025_4e7a279e-1428-4ffb-8e57-91ac5b06d35c.png",
-      "last_played": 1786600484,
+      "last_played": 1786622528,
       "total": {
-        "elo": 1148,
-        "games": 210,
-        "wins": 105,
+        "elo": 1143,
+        "games": 213,
+        "wins": 108,
         "losses": 105
       },
       "modes": {
         "1v1": {
-          "elo": 987,
-          "games": 17,
-          "wins": 7,
+          "elo": 1000,
+          "games": 20,
+          "wins": 10,
           "losses": 10
         },
         "2v2": {

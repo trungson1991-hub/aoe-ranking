@@ -106,15 +106,22 @@ async function fetchPage(uuid, size, index) {
   return json?.Data?.list ?? [];
 }
 
-// Lấy tên/avatar hiện tại từ hồ sơ user (public, không cần token).
-// Lỗi thì trả null (không chặn việc tính ELO).
+// Lấy tên + bộ trang trí hiện tại từ hồ sơ user (public, không cần token).
+// vip_frame / background / effect là đồ trang trí người chơi mua trong game;
+// phần lớn người chơi để trống. Lỗi thì trả null (không chặn việc tính ELO).
 async function fetchProfile(uuid) {
   try {
     const url = `${PROFILE_BASE}?user_uuid=${encodeURIComponent(uuid)}&game_code=${GAME_CODE}`;
     const res = await fetchWithRetry(url, { retries: 2 });
     const d = (await res.json())?.Data;
     if (!d) return null;
-    return { name: d.display_name || "", avatar_url: d.avatar_url || "" };
+    return {
+      name: d.display_name || "",
+      avatar_url: d.avatar_url || "",
+      vip_frame_url: d.vip_frame_url || "",
+      background_url: d.background_url || "",
+      effect_url: d.effect_url || "",
+    };
   } catch {
     return null;
   }
@@ -253,7 +260,16 @@ function emptyInfo() {
   for (const u of TEAM) {
     const modes = {};
     for (const k of MODES) modes[k] = emptyBucket();
-    info[u] = { name: "", avatar_url: "", last_played: 0, total: emptyBucket(), modes };
+    info[u] = {
+      name: "",
+      avatar_url: "",
+      vip_frame_url: "",
+      background_url: "",
+      effect_url: "",
+      last_played: 0,
+      total: emptyBucket(),
+      modes,
+    };
   }
   return info;
 }
@@ -463,6 +479,11 @@ function buildLeaderboard(info, meta, tournBonuses) {
       user_uuid: u,
       name: info[u].name || u.slice(0, 8),
       avatar_url: info[u].avatar_url || "",
+      // Đồ trang trí (phần lớn người chơi để trống) — chỉ ghi khi có,
+      // để file dữ liệu không phình lên bằng các chuỗi rỗng.
+      ...(info[u].vip_frame_url && { vip_frame_url: info[u].vip_frame_url }),
+      ...(info[u].background_url && { background_url: info[u].background_url }),
+      ...(info[u].effect_url && { effect_url: info[u].effect_url }),
       last_played: info[u].last_played,
       total: round(info[u].total, bonus?.total ?? 0),
       modes,
@@ -551,6 +572,9 @@ async function main() {
     if (p) {
       if (p.name) info[u].name = p.name;
       if (p.avatar_url) info[u].avatar_url = p.avatar_url;
+      info[u].vip_frame_url = p.vip_frame_url || "";
+      info[u].background_url = p.background_url || "";
+      info[u].effect_url = p.effect_url || "";
     }
   }
 

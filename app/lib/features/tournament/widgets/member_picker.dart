@@ -19,6 +19,13 @@ Future<List<String>?> showMemberPicker(
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setLocal) {
         final full = selected.length >= teamSize;
+        // Người đã rời team nhưng vẫn còn trong đội: phải hiện ra để bỏ chọn,
+        // nếu không đội bị kẹt vĩnh viễn với thành viên "ma" không gỡ được.
+        final rosterUuids = {for (final m in roster) m.userUuid};
+        final orphans =
+            selected.where((u) => !rosterUuids.contains(u)).toList();
+        // Không đặt scrollable: true — danh sách bên trong đã tự cuộn, bọc
+        // thêm SingleChildScrollView sẽ xung đột khi đo kích thước.
         return AlertDialog(
           title: Text('Chọn $teamSize thành viên',
               style: const TextStyle(color: Colors.white, fontSize: 16)),
@@ -43,6 +50,16 @@ Future<List<String>?> showMemberPicker(
                   child: ListView(
                     shrinkWrap: true,
                     children: [
+                      // Thành viên "ma" (đã rời team) — luôn hiện để bỏ chọn.
+                      for (final u in orphans)
+                        CheckboxListTile(
+                          value: true,
+                          title: Text('$u (đã rời team)',
+                              style: const TextStyle(
+                                  color: AppColors.loss, fontSize: 13)),
+                          onChanged: (_) =>
+                              setLocal(() => selected.remove(u)),
+                        ),
                       for (final m in roster)
                         if (!taken.contains(m.userUuid))
                           CheckboxListTile(

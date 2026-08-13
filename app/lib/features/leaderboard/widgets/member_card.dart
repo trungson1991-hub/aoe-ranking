@@ -42,33 +42,46 @@ class MemberCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Style TĨNH (không animate) để cuộn thật mượt trên web.
+    final radius = BorderRadius.circular(_isTop3 ? 16 : 14);
     final Widget card = _isTop3
         ? Container(
             margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [accent.withValues(alpha: 0.30), AppColors.surface],
-              ),
+              borderRadius: radius,
               border: Border.all(color: accent.withValues(alpha: 0.75), width: 1.6),
               boxShadow: [
                 BoxShadow(color: accent.withValues(alpha: 0.32), blurRadius: 12),
               ],
             ),
-            child: _row(big: true),
+            child: _withBackground(
+              radius: radius,
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [accent.withValues(alpha: 0.30), AppColors.surface],
+              ),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                child: _row(big: true),
+              ),
+            ),
           )
         : Container(
             margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: radius,
               border: Border.all(color: accent.withValues(alpha: 0.35)),
             ),
-            child: _row(big: false),
+            child: _withBackground(
+              radius: radius,
+              color: AppColors.surface,
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: _row(big: false),
+              ),
+            ),
           );
 
     // ListView đã tự bọc RepaintBoundary cho mỗi con -> không bọc thêm.
@@ -86,11 +99,66 @@ class MemberCard extends StatelessWidget {
     );
   }
 
+  /// Nền thẻ: ảnh trang trí của người chơi (nếu có) phủ mờ phía sau, kèm
+  /// lớp tối dần từ trái sang để chữ vẫn đọc rõ; không có thì dùng nền phẳng.
+  Widget _withBackground({
+    required BorderRadius radius,
+    required Widget child,
+    Color? color,
+    Gradient? gradient,
+  }) {
+    final bg = member.backgroundUrl;
+    if (bg.isEmpty) {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+            color: color, gradient: gradient, borderRadius: radius),
+        child: child,
+      );
+    }
+    return ClipRRect(
+      borderRadius: radius,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.network(
+              bg,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              opacity: const AlwaysStoppedAnimation(0.42),
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            ),
+          ),
+          // Phủ tối để tên và chỉ số không bị chìm vào ảnh nền.
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    AppColors.background.withValues(alpha: 0.88),
+                    AppColors.background.withValues(alpha: 0.55),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
+
   Widget _row({required bool big}) {
     final m = member;
     final s = stat;
-    final avatar =
-        MemberAvatar(name: m.name, avatarUrl: m.avatarUrl, radius: big ? 24 : 22);
+    final avatar = MemberAvatar(
+      name: m.name,
+      avatarUrl: m.avatarUrl,
+      radius: big ? 24 : 22,
+      vipFrameUrl: m.vipFrameUrl,
+      effectUrl: m.effectUrl,
+    );
 
     return Row(
       children: [
@@ -109,8 +177,9 @@ class MemberCard extends StatelessWidget {
                 ),
         ),
         const SizedBox(width: 6),
-        // Vòng phát sáng quanh avatar cho top 3.
-        if (big)
+        // Vòng phát sáng quanh avatar cho top 3 — bỏ khi người chơi đã có
+        // khung/hiệu ứng riêng, nếu không hai vòng chồng lên nhau rất rối.
+        if (big && !m.hasDecoration)
           Container(
             padding: const EdgeInsets.all(2),
             decoration: BoxDecoration(

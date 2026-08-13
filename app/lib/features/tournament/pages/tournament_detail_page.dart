@@ -175,38 +175,10 @@ class _BodyState extends State<_Body> {
   Future<void> _renameTournament() async {
     if (!await _ensurePin()) return;
     if (!mounted) return;
-    final ctrl = TextEditingController(text: t.name);
     final newName = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Đổi tên giải',
-            style: TextStyle(color: Colors.white, fontSize: 16)),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'Tên giải',
-            hintStyle: TextStyle(color: Colors.white38),
-            enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white24)),
-            focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: AppColors.gold)),
-          ),
-          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('Lưu',
-                style: TextStyle(fontWeight: FontWeight.w800)),
-          ),
-        ],
-      ),
+      builder: (_) => _RenameDialog(initial: t.name),
     );
-    ctrl.dispose();
     if (newName == null || newName.isEmpty || newName == t.name) return;
     await _saveGuarded(t.copyWith(name: newName),
         successMessage: 'Đã đổi tên giải thành "$newName"');
@@ -428,7 +400,13 @@ class _BodyState extends State<_Body> {
                   'và khoá nhập/sửa tỉ số. Có thể "Mở lại giải" nếu cần.',
             );
           case 'reopen':
-            _setStatus(kStatusActive);
+            _setStatus(
+              kStatusActive,
+              confirmTitle: 'Mở lại giải?',
+              confirmBody: 'Giải trở lại trạng thái đang diễn ra và có thể '
+                  'nhập/sửa kết quả. Điểm thưởng ELO của giải này sẽ ngừng '
+                  'được tính cho tới khi kết thúc lại.',
+            );
           case 'delete':
             _deleteTournament();
         }
@@ -502,7 +480,13 @@ class _BodyState extends State<_Body> {
               ),
             ),
             TextButton(
-              onPressed: () => _setStatus(kStatusActive),
+              onPressed: () => _setStatus(
+                kStatusActive,
+                confirmTitle: 'Mở lại giải?',
+                confirmBody: 'Giải trở lại trạng thái đang diễn ra và có thể '
+                    'nhập/sửa kết quả. Điểm thưởng ELO của giải này sẽ ngừng '
+                    'được tính cho tới khi kết thúc lại.',
+              ),
               child: const Text('Mở lại',
                   style: TextStyle(color: Colors.white70, fontSize: 12)),
             ),
@@ -870,6 +854,59 @@ class _Standings extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Dialog đổi tên giải. Tách thành StatefulWidget để controller sống đúng
+/// vòng đời của dialog (dispose ngay sau showDialog là quá sớm).
+class _RenameDialog extends StatefulWidget {
+  const _RenameDialog({required this.initial});
+
+  final String initial;
+
+  @override
+  State<_RenameDialog> createState() => _RenameDialogState();
+}
+
+class _RenameDialogState extends State<_RenameDialog> {
+  late final TextEditingController _ctrl =
+      TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Đổi tên giải',
+          style: TextStyle(color: Colors.white, fontSize: 16)),
+      content: TextField(
+        controller: _ctrl,
+        autofocus: true,
+        style: const TextStyle(color: Colors.white),
+        decoration: const InputDecoration(
+          hintText: 'Tên giải',
+          hintStyle: TextStyle(color: Colors.white38),
+          enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.white24)),
+          focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: AppColors.gold)),
+        ),
+        onSubmitted: (v) => Navigator.pop(context, v.trim()),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context), child: const Text('Huỷ')),
+        TextButton(
+          onPressed: () => Navigator.pop(context, _ctrl.text.trim()),
+          child:
+              const Text('Lưu', style: TextStyle(fontWeight: FontWeight.w800)),
+        ),
+      ],
     );
   }
 }

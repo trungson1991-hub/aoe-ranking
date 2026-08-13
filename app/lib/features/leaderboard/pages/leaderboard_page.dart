@@ -198,26 +198,14 @@ class _Content extends StatelessWidget {
               runSpacing: 8,
               children: [
                 OutlinedButton.icon(
-                  // Firebase không khởi tạo được (chặn mạng, cấu hình sai) thì
-                  // mở trang Giải đấu sẽ ném lỗi lúc dựng — báo cho người dùng
-                  // thay vì để màn hình trắng.
-                  onPressed: () {
-                    try {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              TournamentsPage(roster: board.members),
-                        ),
-                      );
-                    } catch (_) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                              'Không kết nối được máy chủ giải đấu. Bảng xếp hạng vẫn dùng bình thường.'),
-                        ),
-                      );
-                    }
-                  },
+                  // Firebase lỗi được xử lý bên trong TournamentsPage (hiện
+                  // thông báo kèm nút Back), không bắt được ở đây vì lỗi xảy
+                  // ra khi trang mới dựng, tức sau khi push đã trả về.
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => TournamentsPage(roster: board.members),
+                    ),
+                  ),
                   icon: const Text('🏆', style: TextStyle(fontSize: 16)),
                   label: const Text('Giải đấu'),
                   style: OutlinedButton.styleFrom(

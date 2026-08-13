@@ -64,7 +64,12 @@ class _UserHistoryPageState extends State<UserHistoryPage> {
       appBar: AppBar(
         title: Row(
           children: [
-            MemberAvatar(name: m.name, avatarUrl: m.avatarUrl, radius: 16),
+            MemberAvatar(
+              name: m.name,
+              avatarUrl: m.avatarUrl,
+              radius: 16,
+              vipFrameUrl: m.vipFrameUrl,
+            ),
             const SizedBox(width: 10),
             Flexible(
               child: Text(m.name,

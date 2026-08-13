@@ -46,6 +46,8 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
   int _numGroups = 2;
   int _advance = 1;
   final List<_TeamDraft> _teams = [];
+  // Đội đã xoá — giữ lại để dispose an toàn lúc rời trang.
+  final List<_TeamDraft> _discarded = [];
   bool _saving = false;
 
   // Điều khiển animation thêm/xoá đội trong danh sách.
@@ -87,8 +89,10 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
       ),
       duration: _removeDuration,
     );
-    // Card đang chạy animation biến mất vẫn dùng controller -> dispose sau.
-    Future.delayed(const Duration(milliseconds: 500), draft.dispose);
+    // KHÔNG dispose theo hẹn giờ: controller vẫn còn gắn vào ô nhập của thẻ
+    // đang chạy animation biến mất (và element có thể bị tái dùng), dispose
+    // sớm gây lỗi "used after being disposed". Giữ lại, dọn khi rời trang.
+    _discarded.add(draft);
   }
 
   @override
@@ -98,7 +102,7 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
     for (final c in _prizes) {
       c.dispose();
     }
-    for (final t in _teams) {
+    for (final t in [..._teams, ..._discarded]) {
       t.dispose();
     }
     super.dispose();
@@ -165,19 +169,23 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
   }
 
   Future<void> _save() async {
-    // Safari trên máy tính commit giá trị ô nhập muộn — bỏ focus và chờ 1 nhịp
-    // để chữ vừa gõ chắc chắn đã vào controller trước khi đọc.
-    FocusManager.instance.primaryFocus?.unfocus();
-    await Future<void>.delayed(const Duration(milliseconds: 60));
-    if (!mounted) return;
-
-    final err = _validate();
-    if (err != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
-      return;
-    }
+    if (_saving) return;
+    // Khoá nút NGAY, trước mọi `await`: nếu đặt cờ sau khi chờ thì trong
+    // khoảng chờ đó người dùng vẫn bấm được lần 2 và tạo ra 2 giải trùng nhau.
     setState(() => _saving = true);
     try {
+      // Safari trên máy tính commit giá trị ô nhập muộn — bỏ focus và chờ
+      // 1 nhịp để chữ vừa gõ chắc chắn đã vào controller trước khi đọc.
+      FocusManager.instance.primaryFocus?.unfocus();
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      if (!mounted) return;
+
+      final err = _validate();
+      if (err != null) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(err)));
+        return;
+      }
       final teams = <TournTeam>[
         for (var i = 0; i < _teams.length; i++)
           TournTeam(

@@ -36,6 +36,10 @@ Future<(int, int)?> showScoreDialog(
         };
 
         return AlertDialog(
+          // scrollable: màn hình thấp (điện thoại xoay ngang) không đủ chỗ cho
+          // 2 hàng ô số; không cuộn được thì phần dưới tràn ra ngoài hộp và
+          // KHÔNG bấm được — người dùng chỉ nhập được điểm cho đội A.
+          scrollable: true,
           title: Row(
             children: [
               const Text('Nhập tỉ số',

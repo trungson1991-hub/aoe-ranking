@@ -118,7 +118,11 @@ Firebase nên không bị ảnh hưởng.
 
 - Nguồn dữ liệu (đều public, CORS mở):
   - `GET .../statistics/history` — lịch sử trận (`user_uuid`, `game_code=aoe`, `size`, `index`)
-  - `GET .../statistics/profile` — tên + avatar hiện tại của thành viên
+  - `GET .../statistics/profile` — tên, avatar và **đồ trang trí** của thành viên
+    (`vip_frame_url` khung quanh avatar, `background_url` ảnh nền thẻ, `effect_url` vòng sáng).
+    Lưu ý: các file này đuôi `.png` nhưng thực chất là **GIF động**; riêng ảnh hiệu ứng
+    có nền đen đặc nên app phải vẽ bằng chế độ hoà trộn `screen` để bỏ nền.
+    Người chơi không mua thì các trường này rỗng và app hiển thị như bình thường.
   - Firebase RTDB REST (`/tournaments.json`) — kết quả giải đấu để cộng điểm thưởng
 - ELO **không** lấy từ field `elo_change` của API; script tự tính lại toàn bộ từ các chỉ số
   trong `statistics` nên mọi trận trong cửa sổ đều ảnh hưởng ELO.

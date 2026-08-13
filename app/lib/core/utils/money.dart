@@ -11,5 +11,9 @@ String formatMoney(int v) {
 }
 
 /// Đọc số tiền từ chuỗi nhập tay (bỏ mọi ký tự không phải số): "500.000" -> 500000.
-int parseMoney(String input) =>
-    int.tryParse(input.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+/// Chặn trên 1 tỉ để tránh số vô lý và lỗi hiển thị với số cực lớn.
+int parseMoney(String input) {
+  final digits = input.replaceAll(RegExp(r'[^0-9]'), '');
+  final v = int.tryParse(digits) ?? 0;
+  return v.clamp(0, 1000000000);
+}

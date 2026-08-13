@@ -2,13 +2,16 @@
   "updated_at": 1786593948,
   "start_epoch": 1770955544,
   "window_months": 6,
-  "total_matches": 1589,
+  "total_matches": 1588,
   "internal_matches": 519,
   "members": [
     {
       "user_uuid": "d6c14b8e-d651-49c6-8287-5a069fe7edbc",
       "name": "Tnos",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11102028/11102028_1e364990-b3eb-47fc-bfe8-2fd11465a8a2.png",
+      "vip_frame_url": "https://cdn-data.gtvplus.vn/store/item/image/1120/11200303/11200303_5bfe7ea1-9f75-4ccd-8d59-7c26d19968a4.png",
+      "background_url": "https://cdn-data.gtvplus.vn/store/item/image/1130/11301535/11301535_6e229d98-a3df-443b-8372-3e5d6e6ccfd7.png",
+      "effect_url": "https://cdn-data.gtvplus.vn/store/item/image/1140/11400039/11400039_aaef0d0e-3101-421f-a752-5180dfdb6f4b.png",
       "last_played": 1786514644,
       "total": {
         "elo": 1283,
@@ -161,6 +164,7 @@
       "user_uuid": "a6f69c6c-38cc-4d6a-a2d6-c15bb2792ecc",
       "name": "thuhoai55_7667",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100066/11100066_86.png",
+      "vip_frame_url": "https://cdn-data.gtvplus.vn/store/item/image/1120/11200213/11200213_87501016-4ca0-4339-aef2-e25c79abd7fa.png",
       "last_played": 1786514644,
       "total": {
         "elo": 730,
@@ -237,6 +241,7 @@
       "user_uuid": "3db54282-d32b-41f9-950c-cac1cccd8271",
       "name": "TrumNho",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100001/11100001_27c227dd-6d75-4181-90ad-6a95cfe8b82f.png",
+      "vip_frame_url": "https://cdn-data.gtvplus.vn/frameVIP/frame_017.png",
       "last_played": 1786514690,
       "total": {
         "elo": 1063,
@@ -275,6 +280,9 @@
       "user_uuid": "ac837498-0e68-4299-a5ce-b8f34a5385a9",
       "name": "minh_0909",
       "avatar_url": "https://cdn-data.gtvplus.vn/avatar/avatar_016.png",
+      "vip_frame_url": "https://cdn-data.gtvplus.vn/store/item/image/1120/11200191/11200191_12b67fd8-c287-4485-aa2f-1c827e3cdcc3.png",
+      "background_url": "https://cdn-data.gtvplus.vn/store/item/image/1130/11301361/11301361_b06f183e-04de-4232-a8c9-dda65a80bcf0.png",
+      "effect_url": "https://cdn-data.gtvplus.vn/store/item/image/1140/11400025/11400025_4e7a279e-1428-4ffb-8e57-91ac5b06d35c.png",
       "last_played": 1786514644,
       "total": {
         "elo": 1168,
@@ -313,6 +321,8 @@
       "user_uuid": "65711749-451a-4df6-a140-11d0a2b6e45f",
       "name": "Spainno3",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100001/11100001_27c227dd-6d75-4181-90ad-6a95cfe8b82f.png",
+      "vip_frame_url": "https://cdn-data.gtvplus.vn/store/item/image/1120/11200219/11200219_95d72e94-f43f-4104-9b9e-a3b7091197fd.png",
+      "background_url": "https://cdn-data.gtvplus.vn/store/item/image/1130/11301311/11301311_b2b39951-c798-4c0a-843d-798fdf698989.png",
       "last_played": 1786428392,
       "total": {
         "elo": 1120,
@@ -351,6 +361,7 @@
       "user_uuid": "c5dd6537-6818-4309-869d-9bea79193999",
       "name": "phucyknb",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/0/0_113.png",
+      "vip_frame_url": "https://cdn-data.gtvplus.vn/store/item/image/1120/11200219/11200219_95d72e94-f43f-4104-9b9e-a3b7091197fd.png",
       "last_played": 1786428207,
       "total": {
         "elo": 848,
@@ -389,6 +400,8 @@
       "user_uuid": "7fdee180-f5ef-43e7-be86-3c0e30535010",
       "name": "EmBe.HY",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100001/11100001_27c227dd-6d75-4181-90ad-6a95cfe8b82f.png",
+      "vip_frame_url": "https://cdn-data.gtvplus.vn/frameVIP/frame_007.png",
+      "background_url": "https://cdn-data.gtvplus.vn/store/item/image/1130/11301307/11301307_35635df0-0948-45a8-bb4a-819d52b765cd.png",
       "last_played": 1780985324,
       "total": {
         "elo": 880,

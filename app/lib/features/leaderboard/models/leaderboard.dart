@@ -50,6 +50,12 @@ class Member {
   final ModeStat total;
   final Map<String, ModeStat> modes;
 
+  // Đồ trang trí mua trong game (rỗng nếu người chơi không có).
+  // Ảnh thực tế là GIF động dù đuôi .png.
+  final String vipFrameUrl; // khung tròn quanh avatar
+  final String backgroundUrl; // ảnh nền ngang cho thẻ
+  final String effectUrl; // vòng sáng quanh avatar
+
   const Member({
     required this.userUuid,
     required this.name,
@@ -57,7 +63,13 @@ class Member {
     required this.lastPlayed,
     required this.total,
     required this.modes,
+    this.vipFrameUrl = '',
+    this.backgroundUrl = '',
+    this.effectUrl = '',
   });
+
+  bool get hasDecoration =>
+      vipFrameUrl.isNotEmpty || backgroundUrl.isNotEmpty || effectUrl.isNotEmpty;
 
   // view = 'total' | '1v1' | '2v2' | '3v3' | '4v4'
   ModeStat statFor(String view) =>
@@ -76,6 +88,9 @@ class Member {
       userUuid: (m['user_uuid'] ?? '') as String,
       name: (m['name'] ?? '') as String,
       avatarUrl: (m['avatar_url'] ?? '') as String,
+      vipFrameUrl: (m['vip_frame_url'] ?? '') as String,
+      backgroundUrl: (m['background_url'] ?? '') as String,
+      effectUrl: (m['effect_url'] ?? '') as String,
       lastPlayed: _asInt(m['last_played']),
       total: ModeStat.fromMap(sub(m['total'])),
       modes: modes,

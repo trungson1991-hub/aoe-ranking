@@ -10,20 +10,59 @@ import 'tournament_create_page.dart';
 import 'tournament_detail_page.dart';
 
 class TournamentsPage extends StatefulWidget {
-  const TournamentsPage({super.key, required this.roster});
+  const TournamentsPage({super.key, required this.roster, this.service});
 
   final List<Member> roster;
+
+  /// Cho phép truyền sẵn service (deep-link đã tạo, hoặc test).
+  final TournamentService? service;
 
   @override
   State<TournamentsPage> createState() => _TournamentsPageState();
 }
 
 class _TournamentsPageState extends State<TournamentsPage> {
-  // Giữ service trong State để stream không bị subscribe lại mỗi lần rebuild.
-  late final TournamentService _service = TournamentService();
+  // Tạo trong initState và BẮT LỖI: nếu Firebase không khởi tạo được thì
+  // constructor ném ngay. Trước đây lỗi xảy ra giữa build() nên cả trang
+  // (kể cả AppBar và nút Back) bị thay bằng ô lỗi trống, không thoát ra được.
+  TournamentService? _service;
+  Object? _initError;
+
+  // Giữ stream trong State: watchAll() tạo Stream mới mỗi lời gọi, đặt thẳng
+  // trong build sẽ đăng ký lại và nháy vòng quay mỗi lần dựng lại.
+  Stream<List<Tournament>>? _stream;
+
+  @override
+  void initState() {
+    super.initState();
+    try {
+      _service = widget.service ?? TournamentService();
+      _stream = _service!.watchAll();
+    } catch (e) {
+      _initError = e;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_initError != null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Giải đấu',
+              style: TextStyle(fontWeight: FontWeight.w800)),
+        ),
+        body: const MessageView(
+          icon: Icons.cloud_off,
+          text: 'Không kết nối được máy chủ giải đấu.\n'
+              'Bảng xếp hạng vẫn xem bình thường.',
+        ),
+      );
+    }
+    return _buildList(context);
+  }
+
+  Widget _buildList(BuildContext context) {
+    final service = _service!;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Giải đấu',
@@ -36,12 +75,12 @@ class _TournamentsPageState extends State<TournamentsPage> {
         onPressed: () {
           Navigator.of(context).push(MaterialPageRoute(
             builder: (_) =>
-                TournamentCreatePage(roster: widget.roster, service: _service),
+                TournamentCreatePage(roster: widget.roster, service: service),
           ));
         },
       ),
       body: StreamBuilder<List<Tournament>>(
-        stream: _service.watchAll(),
+        stream: _stream,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -69,7 +108,7 @@ class _TournamentsPageState extends State<TournamentsPage> {
                 padding: const EdgeInsets.all(12),
                 itemCount: list.length,
                 itemBuilder: (_, i) => _TournamentTile(
-                    t: list[i], service: _service, roster: widget.roster),
+                    t: list[i], service: service, roster: widget.roster),
               ),
             ),
           );

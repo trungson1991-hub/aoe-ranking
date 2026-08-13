@@ -1,9 +1,9 @@
 {
-  "updated_at": 1786585685,
-  "start_epoch": 1770947278,
+  "updated_at": 1786587952,
+  "start_epoch": 1770949547,
   "window_months": 6,
-  "total_matches": 1548,
-  "internal_matches": 386,
+  "total_matches": 1589,
+  "internal_matches": 519,
   "tiers": [
     {
       "label": "Top 1",

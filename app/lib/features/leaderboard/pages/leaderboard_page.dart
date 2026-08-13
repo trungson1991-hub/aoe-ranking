@@ -15,6 +15,9 @@ import '../widgets/elo_method_sheet.dart';
 import '../widgets/member_card.dart';
 import '../widgets/top_three_card.dart';
 
+final _headerDateTimeFmt = DateFormat('dd/MM/yyyy HH:mm');
+final _headerDateFmt = DateFormat('dd/MM/yyyy');
+
 // Các chế độ xem: nhãn hiển thị + key trong dữ liệu.
 const List<({String key, String label})> _views = [
   (key: kTotalKey, label: 'Tổng'),
@@ -47,7 +50,11 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
     _future = _svc.fetch();
   }
 
-  void _reload() => setState(() => _future = _svc.fetch());
+  void _reload() => setState(() {
+        // Cho phép preload lại: dữ liệu mới có thể có avatar/thành viên mới.
+        _avatarsPrecached = false;
+        _future = _svc.fetch();
+      });
 
   // Tải + giải mã sẵn toàn bộ avatar ngay khi có dữ liệu. Nếu để lúc cuộn
   // mới decode từng ảnh khi card vào màn hình thì frame bị giật.
@@ -58,7 +65,10 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
       if (!mounted) return;
       for (final m in board.members) {
         if (m.avatarUrl.isNotEmpty) {
-          precacheImage(NetworkImage(m.avatarUrl), context);
+          // onError: ảnh hỏng chỉ cần bỏ qua, widget đã có sẵn dự phòng
+          // chữ cái đầu; không nuốt thì mỗi ảnh lỗi lại ném ra console.
+          precacheImage(NetworkImage(m.avatarUrl), context,
+              onError: (_, __) {});
         }
       }
     });
@@ -76,7 +86,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       // Xoá ?t=... khỏi thanh địa chỉ (giữ nguyên scheme/host/path).
-      replaceUrl(Uri.base.toString().split('?').first.split('#').first);
+      replaceUrl(Uri.base.toString().split('?').first);
       try {
         final service = TournamentService();
         final nav = Navigator.of(context);
@@ -188,11 +198,26 @@ class _Content extends StatelessWidget {
               runSpacing: 8,
               children: [
                 OutlinedButton.icon(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => TournamentsPage(roster: board.members),
-                    ),
-                  ),
+                  // Firebase không khởi tạo được (chặn mạng, cấu hình sai) thì
+                  // mở trang Giải đấu sẽ ném lỗi lúc dựng — báo cho người dùng
+                  // thay vì để màn hình trắng.
+                  onPressed: () {
+                    try {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              TournamentsPage(roster: board.members),
+                        ),
+                      );
+                    } catch (_) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                              'Không kết nối được máy chủ giải đấu. Bảng xếp hạng vẫn dùng bình thường.'),
+                        ),
+                      );
+                    }
+                  },
                   icon: const Text('🏆', style: TextStyle(fontSize: 16)),
                   label: const Text('Giải đấu'),
                   style: OutlinedButton.styleFrom(
@@ -317,8 +342,8 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = DateFormat('dd/MM/yyyy HH:mm');
-    final dateFmt = DateFormat('dd/MM/yyyy');
+    final fmt = _headerDateTimeFmt;
+    final dateFmt = _headerDateFmt;
     return Column(
       children: [
         const Text(

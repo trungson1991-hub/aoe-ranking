@@ -79,6 +79,8 @@ class _TournamentsPageState extends State<TournamentsPage> {
   }
 }
 
+final _dateFmt = DateFormat('dd/MM/yyyy');
+
 class _TournamentTile extends StatelessWidget {
   const _TournamentTile(
       {required this.t, required this.service, required this.roster});
@@ -89,8 +91,8 @@ class _TournamentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final date = DateFormat('dd/MM/yyyy')
-        .format(DateTime.fromMillisecondsSinceEpoch(t.createdAt * 1000));
+    final date =
+        _dateFmt.format(DateTime.fromMillisecondsSinceEpoch(t.createdAt * 1000));
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(

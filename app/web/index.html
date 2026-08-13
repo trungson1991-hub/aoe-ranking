@@ -1,9 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="vi">
 <head>
   <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
-  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <meta name="description" content="Bảng xếp hạng ELO nội bộ team AoE">
 
@@ -79,15 +78,22 @@
           setTimeout(hideLoading, 350);
         }
       }, 200);
-      setTimeout(hideLoading, 8000);
+      // Luôn dừng vòng dò, kể cả khi app không mount được (tránh chạy mãi).
+      setTimeout(function () { clearInterval(poll); hideLoading(); }, 8000);
     })();
   </script>
 
   <script>
-    // Gỡ service worker cũ (nếu có) để không phục vụ bản app bị cache -> web luôn cập nhật.
+    // Gỡ service worker CỦA RIÊNG APP NÀY (nếu có) để không phục vụ bản bị
+    // cache. Lọc theo scope: trên GitHub Pages nhiều repo dùng chung origin,
+    // gỡ tất cả sẽ tắt luôn service worker của dự án khác.
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations()
-        .then(function (rs) { rs.forEach(function (r) { r.unregister(); }); })
+        .then(function (rs) {
+          rs.forEach(function (r) {
+            if (location.href.indexOf(r.scope) === 0) r.unregister();
+          });
+        })
         .catch(function () {});
     }
   </script>

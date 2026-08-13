@@ -6,10 +6,15 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/member_avatar.dart';
 import '../../../core/widgets/message_view.dart';
 import '../../../core/widgets/selector_chip.dart';
+import '../../../core/widgets/win_rate_bar.dart';
 import '../../leaderboard/models/leaderboard.dart';
 import '../../leaderboard/services/leaderboard_service.dart';
 import '../models/match_record.dart';
 import 'match_detail_page.dart';
+
+// Khởi tạo 1 lần: DateFormat phải parse pattern + tra locale, đặt trong
+// build() của từng thẻ trận thì lặp lại hàng trăm lần khi cuộn.
+final _dateTimeFmt = DateFormat('dd/MM/yyyy HH:mm');
 
 // Các bộ lọc thể loại: nhãn + kích thước (null = Tất cả).
 const List<({String label, int? size})> _filters = [
@@ -101,10 +106,10 @@ class _UserHistoryPageState extends State<UserHistoryPage> {
                                 const ScrollCacheExtent.viewport(2),
                             // +1: thẻ tổng quan ở đầu danh sách.
                             itemCount: matches.length + 1,
+                            // ListView.builder đã tự bọc RepaintBoundary.
                             itemBuilder: (_, i) => i == 0
                                 ? _SummaryCard(matches: matches)
-                                : RepaintBoundary(
-                                    child: _MatchTile(rec: matches[i - 1])),
+                                : _MatchTile(rec: matches[i - 1]),
                           ),
                   ),
                 ],
@@ -142,24 +147,33 @@ class _UserHistoryPageState extends State<UserHistoryPage> {
 /// Thẻ tổng quan cho danh sách trận đang lọc: thắng/thua, tỉ lệ,
 /// phong độ 10 trận gần nhất và chỉ số trung bình.
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.matches});
+  _SummaryCard({required this.matches});
 
   final List<MatchRecord> matches;
 
+  // Tính 1 lần lúc dựng widget: đây là item đầu của danh sách nên build()
+  // chạy lại mỗi khi cuộn ngược lên, quét cả trăm trận mỗi lần thì phí.
+  late final int wins = matches.where((m) => m.win).length;
+  late final int losses = matches.length - wins;
+  late final double winRate = wins / matches.length;
+  late final ({int kills, int deaths}) _avg = () {
+    var k = 0;
+    var d = 0;
+    for (final m in matches) {
+      k += m.viewer?.kills ?? 0;
+      d += m.viewer?.losses ?? 0;
+    }
+    return (
+      kills: (k / matches.length).round(),
+      deaths: (d / matches.length).round()
+    );
+  }();
+
   @override
   Widget build(BuildContext context) {
-    final wins = matches.where((m) => m.win).length;
-    final losses = matches.length - wins;
-    final winRate = matches.isEmpty ? 0.0 : wins / matches.length;
-
-    var kills = 0;
-    var deaths = 0;
-    for (final m in matches) {
-      kills += m.viewer?.kills ?? 0;
-      deaths += m.viewer?.losses ?? 0;
-    }
-    final avgK = matches.isEmpty ? 0 : (kills / matches.length).round();
-    final avgD = matches.isEmpty ? 0 : (deaths / matches.length).round();
+    // matches luôn khác rỗng: widget này chỉ dựng ở nhánh có trận.
+    final avgK = _avg.kills;
+    final avgD = _avg.deaths;
 
     // matches sắp mới nhất trước; hiển thị MỚI NHẤT bên trái, cũ dần về phải.
     final recent = matches.take(10).toList();
@@ -217,24 +231,10 @@ class _SummaryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          // Thanh tỉ lệ thắng.
-          ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: SizedBox(
-              height: 6,
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: (winRate * 100).round().clamp(0, 100),
-                    child: Container(color: AppColors.win),
-                  ),
-                  Expanded(
-                    flex: 100 - (winRate * 100).round().clamp(0, 100),
-                    child: Container(color: AppColors.loss.withValues(alpha: 0.45)),
-                  ),
-                ],
-              ),
-            ),
+          WinRateBar(
+            winRate: winRate,
+            height: 6,
+            lossColor: AppColors.loss.withValues(alpha: 0.45),
           ),
           const SizedBox(height: 12),
           // Wrap thay Row: màn hình hẹp (điện thoại) thì 2 khối tự xuống dòng
@@ -377,7 +377,7 @@ class _MatchTile extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          DateFormat('dd/MM/yyyy HH:mm').format(rec.dateVN),
+                          _dateTimeFmt.format(rec.dateVN),
                           style: const TextStyle(
                               color: Colors.white54, fontSize: 12),
                         ),

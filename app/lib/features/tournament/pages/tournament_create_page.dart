@@ -9,6 +9,7 @@ import '../logic/round_robin.dart';
 import '../models/tournament.dart';
 import '../services/tournament_service.dart';
 import '../widgets/member_picker.dart';
+import '../widgets/tournament_form.dart';
 
 class _TeamDraft {
   _TeamDraft(String initialName) {
@@ -265,29 +266,7 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
               const Text('Dùng để nhập kết quả, sửa và xoá giải.',
                   style: TextStyle(color: Colors.white38, fontSize: 12)),
               const SizedBox(height: 14),
-              const Text('Tiền thưởng (đ) — để trống nếu không có',
-                  style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700)),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  for (var i = 0; i < 3; i++) ...[
-                    if (i > 0) const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: _prizes[i],
-                        keyboardType: TextInputType.number,
-                        style: const TextStyle(
-                            color: Colors.white, fontSize: 14),
-                        decoration:
-                            _dec(const ['🥇 Nhất', '🥈 Nhì', '🥉 Ba'][i]),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+              PrizeFields(controllers: _prizes),
               const SizedBox(height: 14),
               Row(
                 children: [
@@ -497,14 +476,7 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
     );
   }
 
-  InputDecoration _dec(String label) => InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.white54),
-        enabledBorder: const OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.white24)),
-        focusedBorder: const OutlineInputBorder(
-            borderSide: BorderSide(color: AppColors.gold)),
-      );
+  InputDecoration _dec(String label) => tournamentFieldDecoration(label);
 
   Widget _dropdown<T>({
     required String label,

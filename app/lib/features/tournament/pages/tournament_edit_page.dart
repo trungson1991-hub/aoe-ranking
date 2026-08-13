@@ -7,6 +7,7 @@ import '../logic/tournament_edit.dart';
 import '../models/tournament.dart';
 import '../services/tournament_service.dart';
 import '../widgets/member_picker.dart';
+import '../widgets/tournament_form.dart';
 
 /// Sửa giải sau khi đã tạo: tên giải, tiền thưởng, tên đội, thành viên,
 /// chuyển đội sang bảng khác. Trang này chỉ mở được sau khi qua PIN
@@ -202,8 +203,22 @@ class _TournamentEditPageState extends State<TournamentEditPage> {
     if (!mounted) return;
     setState(() => _saving = true);
     try {
-      final updated = applyTeamEdits(t, teams: newTeams, groups: newGroups)
-          .copyWith(
+      // Lấy bản MỚI NHẤT làm gốc: trang này có thể đã mở từ lâu, trong lúc đó
+      // người khác có thể đã nhập kết quả hoặc kết thúc giải. Ghi đè bằng
+      // snapshot cũ sẽ xoá sạch những thay đổi đó.
+      final latest = await widget.service
+          .getOnce(t.id)
+          .timeout(const Duration(seconds: 15));
+      if (latest == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Giải đã bị xoá, không thể lưu')),
+          );
+        }
+        return;
+      }
+      final updated =
+          applyTeamEdits(latest, teams: newTeams, groups: newGroups).copyWith(
         name: _name.text.trim(),
         prizes: [for (final c in _prizes) parseMoney(c.text)],
       );
@@ -244,28 +259,7 @@ class _TournamentEditPageState extends State<TournamentEditPage> {
                 decoration: _dec('Tên giải'),
               ),
               const SizedBox(height: 14),
-              const Text('Tiền thưởng (đ) — để trống nếu không có',
-                  style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700)),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  for (var i = 0; i < 3; i++) ...[
-                    if (i > 0) const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: _prizes[i],
-                        keyboardType: TextInputType.number,
-                        style: const TextStyle(
-                            color: Colors.white, fontSize: 14),
-                        decoration: _dec(const ['🥇 Nhất', '🥈 Nhì', '🥉 Ba'][i]),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+              PrizeFields(controllers: _prizes),
               const SizedBox(height: 14),
               const Text(
                 'Đổi tên đội / thành viên: giữ nguyên lịch và kết quả. '
@@ -295,14 +289,7 @@ class _TournamentEditPageState extends State<TournamentEditPage> {
     );
   }
 
-  InputDecoration _dec(String label) => InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.white54),
-        enabledBorder: const OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.white24)),
-        focusedBorder: const OutlineInputBorder(
-            borderSide: BorderSide(color: AppColors.gold)),
-      );
+  InputDecoration _dec(String label) => tournamentFieldDecoration(label);
 
   Widget _teamCard(_EditTeam e) {
     final names = e.memberUuids.map(_nameOf).join(', ');

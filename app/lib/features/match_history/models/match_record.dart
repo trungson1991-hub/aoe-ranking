@@ -78,7 +78,8 @@ class MatchRecord {
   final bool internal; // mọi người chơi đều thuộc team
   final bool ghost; // trận "ma" (không tính ELO)
 
-  const MatchRecord({
+  // Không const: các trường dẫn xuất bên dưới dùng `late final` để nhớ kết quả.
+  MatchRecord({
     required this.createdTime,
     required this.roomId,
     required this.red,
@@ -88,44 +89,56 @@ class MatchRecord {
     required this.ghost,
   });
 
-  List<PlayerStat> get all => [...red, ...blue];
+  // Các giá trị dẫn xuất được tính 1 lần rồi nhớ lại: mỗi thẻ trận đọc
+  // chúng nhiều lần trong lúc vẽ, tính lại mỗi lần sẽ cấp phát list/Set thừa.
+  late final List<PlayerStat> all = [...red, ...blue];
 
-  PlayerStat? get viewer {
+  late final PlayerStat? viewer = () {
     for (final p in all) {
       if (p.uuid == viewerUuid) return p;
     }
     return null;
-  }
+  }();
 
-  bool get win => viewer?.win ?? false;
-  bool _viewerInRed() => red.any((p) => p.uuid == viewerUuid);
-  List<PlayerStat> get myTeam => _viewerInRed() ? red : blue;
-  List<PlayerStat> get oppTeam => _viewerInRed() ? blue : red;
+  late final bool win = viewer?.win ?? false;
+  late final bool _viewerInRed = red.any((p) => p.uuid == viewerUuid);
+  List<PlayerStat> get myTeam => _viewerInRed ? red : blue;
+  List<PlayerStat> get oppTeam => _viewerInRed ? blue : red;
 
-  // Số người thực mỗi đội = số màu khác nhau (trùng màu = viewer/cùng slot).
-  // color <= 0 nghĩa là không có dữ liệu màu -> không gộp được, mỗi người tính
-  // là 1 slot riêng (khớp luật của scripts/compute.mjs).
-  int _distinct(List<PlayerStat> side) {
-    final seen = <int>{};
-    var n = 0;
-    for (final p in side) {
-      if (p.color <= 0 || seen.add(p.color)) n++;
+  /// Uuid của những người chơi THỰC (khớp `realPlayers` trong compute.mjs):
+  /// nếu nhiều người cùng `empires_color` (chung một slot) thì chỉ người xuất
+  /// hiện đầu tiên được tính, những người sau là "viewer". color <= 0 nghĩa là
+  /// thiếu dữ liệu màu -> không gộp được, mỗi người là 1 slot riêng.
+  late final Set<String> realPlayerUuids = () {
+    final seenColor = <int>{};
+    final out = <String>{};
+    for (final p in all) {
+      if (p.color <= 0 || seenColor.add(p.color)) out.add(p.uuid);
     }
-    return n;
-  }
+    return out;
+  }();
 
-  int get redCount => _distinct(red);
-  int get blueCount => _distinct(blue);
-  String get modeLabel => '${redCount}v$blueCount';
-  int? get symmetricSize =>
+  /// Người đang xem có thực sự chơi trận này không (hay chỉ là viewer chung
+  /// slot). Trận mà người xem là viewer KHÔNG được tính vào ELO của họ, nên
+  /// cũng không nên đếm vào lịch sử — nếu không, tổng số trận ở trang lịch sử
+  /// sẽ lệch với số trận trên bảng xếp hạng.
+  bool get viewerIsRealPlayer => realPlayerUuids.contains(viewerUuid);
+
+  int _countReal(List<PlayerStat> side) =>
+      side.where((p) => realPlayerUuids.contains(p.uuid)).length;
+
+  late final int redCount = _countReal(red);
+  late final int blueCount = _countReal(blue);
+  late final String modeLabel = '${redCount}v$blueCount';
+  late final int? symmetricSize =
       (redCount == blueCount && redCount >= 1 && redCount <= 4)
           ? redCount
           : null;
 
-  List<String> get opponentNames => _names(oppTeam);
+  late final List<String> opponentNames = _names(oppTeam);
 
   /// Đồng đội (không tính chính mình).
-  List<String> get teammateNames =>
+  late final List<String> teammateNames =
       _names(myTeam.where((p) => p.uuid != viewerUuid));
 
   List<String> _names(Iterable<PlayerStat> side) {
@@ -160,15 +173,12 @@ class MatchRecord {
     final internal =
         all.isNotEmpty && all.every((p) => teamSet.contains(p.uuid));
 
-    // Ghost: <=1 người / một đội rỗng / tổng kills+losses < 10.
+    // Ghost: một đội rỗng (không có đối thủ) / tổng kills+losses < 10.
     var kd = 0;
     for (final p in all) {
       kd += p.kills + p.losses;
     }
-    final ghost = (red.length + blue.length) <= 1 ||
-        red.isEmpty ||
-        blue.isEmpty ||
-        kd < 10;
+    final ghost = red.isEmpty || blue.isEmpty || kd < 10;
 
     return MatchRecord(
       createdTime: _int(j['created_time']),

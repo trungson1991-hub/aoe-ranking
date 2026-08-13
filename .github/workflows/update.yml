@@ -13,7 +13,7 @@ on:
       - '.github/workflows/update.yml'
 
 permissions:
-  contents: write   # để commit checkpoint (state.json) & data
+  contents: write   # để commit lại app/web/data/leaderboard.json
   pages: write      # để deploy GitHub Pages
   id-token: write
 
@@ -25,7 +25,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # fetch-depth: 0 — cần lịch sử đầy đủ cho `git pull --rebase` ở bước lưu.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -35,8 +38,30 @@ jobs:
       - name: Tính ELO (cửa sổ 6 tháng)
         run: node scripts/compute.mjs
 
-      # Lưu dữ liệu mới. [skip ci] để không tự kích hoạt lại workflow.
-      # Rebase + retry để tránh lỗi "fetch first" khi có run khác đẩy commit chen ngang.
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Cài dependency
+        run: cd app && flutter pub get
+
+      # Chặn code hỏng trước khi deploy. Trước đây CI không hề chạy test,
+      # nên test đỏ ở máy vẫn deploy được lên Pages.
+      - name: Kiểm tra code (analyze + test)
+        run: |
+          cd app
+          flutter analyze
+          flutter test
+
+      # --wasm: engine WebAssembly (skwasm) render mượt hơn hẳn bản JS;
+      # trình duyệt cũ không hỗ trợ WasmGC sẽ tự rơi về bản JS đi kèm.
+      - name: Build web
+        run: |
+          cd app
+          flutter build web --wasm --release --pwa-strategy=none --base-href "/${GITHUB_REPOSITORY##*/}/"
+
+      # Chỉ lưu dữ liệu SAU KHI build thành công, để repo và web không lệch nhau.
+      # [skip ci] để không tự kích hoạt lại workflow.
       - name: Lưu dữ liệu
         run: |
           git config user.name "github-actions[bot]"
@@ -52,23 +77,13 @@ jobs:
               echo "Đã push."
               exit 0
             fi
-            echo "Push bị từ chối, rebase và thử lại ($i)..."
-            git pull --rebase -X ours origin "${GITHUB_REF_NAME}"
+            echo "Push bị từ chối, thử lại ($i)..."
+            # KHÔNG dùng -X ours: khi rebase, "ours" là bản trên remote nên
+            # chiến lược đó vứt đúng dữ liệu ELO vừa tính rồi vẫn báo thành công.
+            git pull --rebase origin "${GITHUB_REF_NAME}" || exit 1
           done
           echo "Không push được sau 5 lần thử."
           exit 1
-
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-
-      # --wasm: engine WebAssembly (skwasm) render mượt hơn hẳn bản JS;
-      # trình duyệt cũ không hỗ trợ WasmGC sẽ tự rơi về bản JS đi kèm.
-      - name: Build web
-        run: |
-          cd app
-          flutter pub get
-          flutter build web --wasm --release --pwa-strategy=none --base-href "/${GITHUB_REPOSITORY##*/}/"
 
       - uses: actions/upload-pages-artifact@v3
         with:

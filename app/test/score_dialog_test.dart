@@ -52,7 +52,7 @@ void main() {
   testWidgets('cả 2 đội cùng đạt chạm -> báo lỗi và không cho lưu',
       (tester) async {
     final open = await _openDialog(tester);
-    open();
+    final result = open();
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('score-a-3')));
@@ -63,5 +63,10 @@ void main() {
     final save = tester.widget<TextButton>(
         find.widgetWithText(TextButton, 'Lưu'));
     expect(save.onPressed, isNull);
+
+    // Huỷ -> không trả về tỉ số nào.
+    await tester.tap(find.text('Huỷ'));
+    await tester.pumpAndSettle();
+    expect(await result, isNull);
   });
 }

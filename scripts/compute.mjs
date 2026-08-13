@@ -13,10 +13,10 @@ import { fileURLToPath } from "node:url";
 import {
   TEAM,
   WINDOW_MONTHS,
-  TIERS,
   GAME_CODE,
   ACTIVITY_WEIGHT,
   TOURNEY_BONUS,
+  TOURNEY_WINDOW_MONTHS,
   FIREBASE_DB_URL,
 } from "./team.mjs";
 
@@ -37,8 +37,9 @@ const HEADERS = {
 // Hệ ELO chuẩn quốc tế: mọi người xuất phát từ RATING_BASE, không bao giờ âm.
 // - 10 trận đầu (mỗi bảng) dùng K lớn để "định hạng" nhanh về đúng trình độ;
 //   từ trận 11 dùng K nhỏ hơn cho ổn định, ít nhiễu.
-// - KHÔNG cộng/trừ điểm theo số trận: ELO chỉ phản ánh trình độ.
-//   Dưới PLACEMENT_GAMES trận, client hiển thị nhãn "tạm xếp".
+// - Dưới PLACEMENT_GAMES trận, client hiển thị nhãn "ELO tạm".
+// - ELO hiển thị = rating + độ quen tay (ACTIVITY_WEIGHT·√số trận)
+//   + điểm thưởng giải đấu; xem buildLeaderboard.
 const RATING_BASE = 1000; // điểm xuất phát (mốc trung bình)
 const RATING_FLOOR = 0; // chặn dưới tuyệt đối (thực tế luôn quanh 1000)
 const K_PLACEMENT = 40; // độ nhạy 10 trận đầu (định hạng)
@@ -140,17 +141,23 @@ async function fetchUserMatches(uuid, fromEpoch) {
 
 const teamSet = new Set(TEAM);
 
+// Danh sách người chơi 2 đội, phòng khi API thiếu field (tránh sập cả lần chạy).
+const membersOf = (m) => [
+  ...(m.red_team_members ?? []),
+  ...(m.blue_team_members ?? []),
+];
+
 // Trận nội bộ: MỌI người chơi (đang có mặt) đều thuộc team.
 function isInternal(m) {
-  const parts = [...m.red_team_members, ...m.blue_team_members];
+  const parts = membersOf(m);
   return parts.length > 0 && parts.every((p) => teamSet.has(p.user_uuid));
 }
 
-// Trận "ma" (loại): (1) <=1 người hoặc một đội rỗng (Xv0); (2) tổng kills+losses < 10.
+// Trận "ma" (loại): (1) một đội rỗng (Xv0 — không có đối thủ);
+// (2) tổng kills+losses < 10 (không có giao tranh thật).
 function isGhost(m) {
-  const red = m.red_team_members.length;
-  const blue = m.blue_team_members.length;
-  if (red + blue <= 1) return true;
+  const red = (m.red_team_members ?? []).length;
+  const blue = (m.blue_team_members ?? []).length;
   if (red === 0 || blue === 0) return true;
   let kd = 0;
   for (const s of Object.values(m.statistics || {})) {
@@ -164,15 +171,16 @@ function isGhost(m) {
 // bị loại khỏi mọi tính toán ELO. Màu là duy nhất toàn trận trong AoE.
 function realPlayers(m) {
   const order = [
-    ...m.red_team_members.map((x) => ({ uuid: x.user_uuid, idx: 0 })),
-    ...m.blue_team_members.map((x) => ({ uuid: x.user_uuid, idx: 1 })),
+    ...(m.red_team_members ?? []).map((x) => ({ uuid: x.user_uuid, idx: 0 })),
+    ...(m.blue_team_members ?? []).map((x) => ({ uuid: x.user_uuid, idx: 1 })),
   ];
   const seen = new Set();
   const real = [];
   for (const p of order) {
     const color = m.statistics?.[p.uuid]?.empires_color;
-    // Không có màu -> không gộp được, coi mỗi người là 1 slot riêng.
-    const key = color === undefined || color === null ? `u:${p.uuid}` : `c:${color}`;
+    // Màu hợp lệ trong AoE là 1..8. Thiếu màu hoặc 0 = không có dữ liệu ->
+    // không gộp được, coi mỗi người là 1 slot riêng (khớp app Flutter).
+    const key = !color ? `u:${p.uuid}` : `c:${color}`;
     if (seen.has(key)) continue; // viewer -> bỏ
     seen.add(key);
     real.push(p);
@@ -209,11 +217,29 @@ function perfScores(m) {
     );
   });
 
-  return players.map((p, i) => {
+  const raw = players.map((_, i) => {
     let perf = 0;
     METRICS.forEach((mt, k) => (perf += mt.w * normed[k][i]));
-    return { uuid: p.uuid, idx: p.idx, perf };
+    return perf;
   });
+
+  // CÂN LẠI VỀ TÂM 0.5 — bắt buộc để ELO không rò rỉ điểm.
+  //
+  // Elo chỉ bảo toàn khi tổng điểm nhận = tổng kỳ vọng (= n/2). Chuẩn hoá
+  // min-max trên các chỉ số lệch phải (1 người carry, phần còn lại dồn cụm)
+  // cho tổng NHỎ HƠN n/2, nên mỗi trận cả hệ mất một ít điểm — càng đông
+  // người càng mất nhiều. Đo thực tế trước khi sửa: bảng 1v1 trung bình
+  // 998 (đúng mốc) nhưng 4v4 chỉ 963, tức người chơi 4v4 bị dìm ~35 điểm
+  // chỉ vì thể loại đông người hơn.
+  //
+  // Dịch cả trận sao cho trung bình phong độ = 0.5: giữ nguyên thứ tự và
+  // khoảng cách giữa các người chơi, chỉ đưa tâm về đúng mốc trung lập.
+  const mean = raw.reduce((a, b) => a + b, 0) / raw.length;
+  return players.map((p, i) => ({
+    uuid: p.uuid,
+    idx: p.idx,
+    perf: raw[i] - mean + 0.5,
+  }));
 }
 
 // ---- Cập nhật ELO tuần tự ----
@@ -283,7 +309,11 @@ function fxWinner(f, firstTo) {
 function tournStandings(t, teamIds, fixtures) {
   const rows = new Map();
   for (const id of teamIds ?? []) {
-    rows.set(id, { id, wins: 0, gameWon: 0, gameLost: 0 });
+    // Chỉ xếp hạng đội CÒN tồn tại trong danh sách đội (khớp app): id mồ côi
+    // sẽ tạo dòng "ma" 0 trận và có thể chiếm mất suất á quân.
+    const team = (t.teams ?? []).find((x) => x?.id === id);
+    if (!team) continue;
+    rows.set(id, { id, name: team.name ?? "", wins: 0, gameWon: 0, gameLost: 0 });
   }
   for (const f of fixtures ?? []) {
     const a = rows.get(f.a_id);
@@ -296,11 +326,14 @@ function tournStandings(t, teamIds, fixtures) {
     if (fxWinner(f, t.first_to) === f.a_id) a.wins++;
     else b.wins++;
   }
+  // Thứ tự tie-break phải KHỚP app (standings.dart) — nếu khác, script có
+  // thể trao điểm cho đội khác với đội web hiển thị là vô địch.
   return [...rows.values()].sort(
     (x, y) =>
       y.wins - x.wins ||
       y.gameWon - y.gameLost - (x.gameWon - x.gameLost) ||
-      y.gameWon - x.gameWon
+      y.gameWon - x.gameWon ||
+      String(x.name).localeCompare(String(y.name))
   );
 }
 
@@ -325,13 +358,16 @@ function koResult(t) {
       if (!f) continue;
       const aId = r === 0 ? f.a_id ?? null : winners.get(`${r - 1}_${2 * m}`) ?? null;
       const bId = r === 0 ? f.b_id ?? null : winners.get(`${r - 1}_${2 * m + 1}`) ?? null;
-      // Bye: 1 bên trống -> bên kia đi tiếp.
+      // Ô trống ở VÒNG ĐẦU = bye (đi tiếp luôn). Ở vòng sau nghĩa là trận
+      // trước chưa đá xong -> chưa có đội thắng; nếu coi là bye sẽ trao ELO
+      // vô địch cho đội chưa đá chung kết.
       let w = null;
-      if (aId != null && bId == null) w = aId;
-      else if (bId != null && aId == null) w = bId;
-      else if (aId != null && bId != null) {
-        if ((f.score_a ?? 0) >= t.first_to) w = aId;
-        else if ((f.score_b ?? 0) >= t.first_to) w = bId;
+      if (aId == null || bId == null) {
+        if (r === 0) w = aId ?? bId;
+      } else if ((f.score_a ?? 0) >= t.first_to) {
+        w = aId;
+      } else if ((f.score_b ?? 0) >= t.first_to) {
+        w = bId;
       }
       winners.set(`${r}_${m}`, w);
       if (r === maxRound && m === 0) final_ = { aId, bId, w };
@@ -342,48 +378,70 @@ function koResult(t) {
   return { championId: final_.w, runnerUpId: runner ?? null };
 }
 
-// Vô địch + á quân của 1 giải.
+// Vô địch + á quân của 1 giải (null nếu chưa xác định được).
 function tournamentPodium(t) {
   if (t.structure === "groups_knockout") return koResult(t);
-  // round_robin: bảng duy nhất; chỉ tính khi đã có trận đấu xong.
+  // round_robin: chỉ trao giải khi MỌI trận đã đá xong — giống điều kiện
+  // hiện banner vô địch trên web. Trước đây chỉ cần 1 trận có kết quả là
+  // đã trao +15/+7, kể cả cho đội chưa đá trận nào.
   const g = (t.groups ?? [])[0];
   if (!g) return null;
-  const st = tournStandings(t, g.team_ids, t.group_fixtures);
-  if (!st.length || !st.some((r) => r.wins > 0)) return null;
+  const fixtures = t.group_fixtures ?? [];
+  if (!fixtures.length || !fixtures.every((f) => fxDecided(f, t.first_to))) {
+    return null;
+  }
+  const st = tournStandings(t, g.team_ids, fixtures);
+  if (!st.length) return null;
   return { championId: st[0]?.id ?? null, runnerUpId: st[1]?.id ?? null };
 }
 
 // Điểm cộng theo uuid: { total, modes: { '1v1': n, ... } }.
+// Chỉ tính giải ĐÃ KẾT THÚC trong cửa sổ TOURNEY_WINDOW_MONTHS gần nhất.
 // Lỗi mạng/Firebase -> trả rỗng, KHÔNG làm hỏng lần cập nhật.
-async function fetchTournamentBonuses() {
+async function fetchTournamentBonuses(sinceEpoch) {
   const bonuses = new Map();
   let finished = 0;
+  let expired = 0;
   try {
     const res = await fetchWithRetry(`${FIREBASE_DB_URL}/tournaments.json`, {
       retries: 2,
     });
     const data = await res.json();
-    for (const t of Object.values(data ?? {})) {
-      if ((t?.status ?? "active") !== "finished") continue;
-      const podium = tournamentPodium(t);
-      if (!podium) continue;
-      finished++;
-      const award = (teamId, points) => {
-        const team = (t.teams ?? []).find((x) => x?.id === teamId);
-        for (const uuid of team?.member_uuids ?? []) {
-          const b = bonuses.get(uuid) ?? { total: 0, modes: {} };
-          b.total += points;
-          if (t.format) b.modes[t.format] = (b.modes[t.format] ?? 0) + points;
-          bonuses.set(uuid, b);
+    for (const [id, t] of Object.entries(data ?? {})) {
+      // Bọc từng giải: dữ liệu 1 giải hỏng không được làm mất điểm thưởng
+      // của tất cả các giải còn lại.
+      try {
+        if ((t?.status ?? "active") !== "finished") continue;
+        // Mốc kết thúc; giải kết thúc trước khi có field này thì tạm dùng
+        // ngày tạo (ước lượng an toàn, không bao giờ trễ hơn thực tế).
+        const endedAt = Number(t.finished_at) || Number(t.created_at) || 0;
+        if (endedAt && endedAt < sinceEpoch) {
+          expired++;
+          continue;
         }
-      };
-      if (podium.championId) award(podium.championId, TOURNEY_BONUS.champion);
-      if (podium.runnerUpId) award(podium.runnerUpId, TOURNEY_BONUS.runnerUp);
+        const podium = tournamentPodium(t);
+        if (!podium) continue;
+        finished++;
+        const format = t.format || "1v1"; // khớp mặc định của app
+        const award = (teamId, points) => {
+          const team = (t.teams ?? []).find((x) => x?.id === teamId);
+          for (const uuid of team?.member_uuids ?? []) {
+            const b = bonuses.get(uuid) ?? { total: 0, modes: {} };
+            b.total += points;
+            b.modes[format] = (b.modes[format] ?? 0) + points;
+            bonuses.set(uuid, b);
+          }
+        };
+        if (podium.championId) award(podium.championId, TOURNEY_BONUS.champion);
+        if (podium.runnerUpId) award(podium.runnerUpId, TOURNEY_BONUS.runnerUp);
+      } catch (e) {
+        console.log(`Bỏ qua giải ${id} (dữ liệu không hợp lệ): ${e.message}`);
+      }
     }
   } catch (e) {
     console.log(`Bỏ qua điểm giải đấu (không đọc được Firebase): ${e.message}`);
   }
-  return { bonuses, finished };
+  return { bonuses, finished, expired };
 }
 
 function buildLeaderboard(info, meta, tournBonuses) {
@@ -410,21 +468,41 @@ function buildLeaderboard(info, meta, tournBonuses) {
       modes,
     };
   });
-  return { ...meta, tiers: TIERS, members };
+  return { ...meta, members };
 }
 
 // ---- Main ----
 
+// Lùi `months` tháng từ `from`. Đặt ngày về 1 trước khi lùi tháng để tránh
+// tràn ngày (31/8 lùi 6 tháng thành 3/3 thay vì 28/2), khiến cửa sổ nhảy
+// bất thường vào các ngày cuối tháng.
+function monthsAgo(from, months) {
+  const d = new Date(from);
+  d.setDate(1);
+  d.setMonth(d.getMonth() - months);
+  d.setDate(
+    Math.min(
+      from.getDate(),
+      new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+    )
+  );
+  return d;
+}
+
 async function main() {
-  const startDate = new Date();
-  startDate.setMonth(startDate.getMonth() - WINDOW_MONTHS);
+  const now = new Date();
+  const startDate = monthsAgo(now, WINDOW_MONTHS);
   const START_EPOCH = Math.floor(startDate.getTime() / 1000);
+  // Cửa sổ riêng (dài hơn) cho điểm thưởng giải đấu.
+  const TOURNEY_START = Math.floor(
+    monthsAgo(now, TOURNEY_WINDOW_MONTHS).getTime() / 1000
+  );
 
   // Fetch song song: lịch sử trận + hồ sơ (tên/avatar) + điểm thưởng giải đấu.
   const [lists, profileList, tourney] = await Promise.all([
     Promise.all(TEAM.map((uuid) => fetchUserMatches(uuid, START_EPOCH))),
     Promise.all(TEAM.map((uuid) => fetchProfile(uuid))),
-    fetchTournamentBonuses(),
+    fetchTournamentBonuses(TOURNEY_START),
   ]);
   const union = new Map();
   for (const list of lists) for (const m of list) union.set(m.game_id, m);
@@ -439,21 +517,29 @@ async function main() {
 
   // Ngày chơi gần nhất (mọi trận đã fetch, kể cả không tính ELO).
   for (const m of union.values()) {
-    for (const x of [...m.red_team_members, ...m.blue_team_members]) {
+    for (const x of membersOf(m)) {
       const t = info[x.user_uuid];
       if (t && m.created_time > t.last_played) t.last_played = m.created_time;
     }
   }
 
+  let skipped = 0;
   for (const m of eligible) {
     // Cập nhật tên/avatar.
-    for (const x of [...m.red_team_members, ...m.blue_team_members]) {
+    for (const x of membersOf(m)) {
       if (info[x.user_uuid]) {
         if (x.name) info[x.user_uuid].name = x.name;
         if (x.avatar_url) info[x.user_uuid].avatar_url = x.avatar_url;
       }
     }
     const ps = perfScores(m);
+    // Sau khi loại viewer mà một đội không còn ai -> không có đối thủ để so
+    // kỳ vọng, bỏ qua trận (nếu tính, ELO trung bình đội rỗng = 0 sẽ làm
+    // kỳ vọng lệch hẳn về 1 và trừ điểm oan).
+    if (!ps.some((p) => p.idx === 0) || !ps.some((p) => p.idx === 1)) {
+      skipped++;
+      continue;
+    }
     applyElo((u) => info[u].total, m, ps); // ELO tổng
     const mk = modeKeyFromPlayers(ps); // theo số người thực (đã loại viewer)
     if (mk) applyElo((u) => info[u].modes[mk], m, ps); // ELO theo thể loại
@@ -475,7 +561,9 @@ async function main() {
       start_epoch: START_EPOCH,
       window_months: WINDOW_MONTHS,
       total_matches: union.size,
-      internal_matches: eligible.length,
+      // Chỉ đếm trận THỰC SỰ vào ELO (trừ trận bị bỏ vì một đội rỗng
+      // sau khi loại viewer) — con số này hiện trên web.
+      internal_matches: eligible.length - skipped,
     },
     tourney.bonuses
   );
@@ -485,7 +573,10 @@ async function main() {
   console.log(
     `Performance ELO — cửa sổ ${WINDOW_MONTHS} tháng: ${eligible.length} trận, ` +
       `từ ${startDate.toISOString().slice(0, 10)}; ` +
-      `${tourney.finished} giải đã kết thúc được cộng điểm`
+      `${tourney.finished} giải được cộng điểm` +
+      (tourney.expired
+        ? ` (${tourney.expired} giải quá ${TOURNEY_WINDOW_MONTHS} tháng, không tính)`
+        : "")
   );
 }
 

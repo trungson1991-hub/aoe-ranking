@@ -42,13 +42,20 @@ class LeaderboardService {
     const base =
         'https://game-offline.gplay.vn/game/offline/api/v2.1/statistics/history';
     const pageSize = 100;
-    const maxPages = 12; // đủ cho ~1200 trận / 6 tháng
+    // Trần an toàn; vòng lặp thường dừng sớm khi chạm mốc thời gian.
+    // 12 trang từng cắt mất lịch sử của người chơi nhiều mà không báo gì.
+    const maxPages = 30;
     final out = <MatchRecord>[];
     for (var index = 1; index <= maxPages; index++) {
       final uri = Uri.parse(
           '$base?user_uuid=$uuid&game_code=aoe&size=$pageSize&index=$index');
       final res = await http.get(uri, headers: {'Accept': 'application/json'});
-      if (res.statusCode != 200) break;
+      // Lỗi API phải báo cho người dùng. Trước đây `break` im lặng khiến
+      // màn hình hiện "Không có trận nào" — người dùng tưởng mình chưa chơi.
+      if (res.statusCode != 200) {
+        throw Exception(
+            'API GPlay lỗi ${res.statusCode} khi tải lịch sử (trang $index)');
+      }
       final body =
           jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
       final list = (body['Data']?['list'] as List?) ?? const [];
@@ -61,7 +68,11 @@ class LeaderboardService {
           reachedStart = true;
           continue;
         }
-        if (rec.internal && !rec.ghost) out.add(rec);
+        // Cùng bộ lọc với compute.mjs, kể cả việc bỏ trận mà người xem chỉ
+        // là viewer chung slot — để số trận khớp bảng xếp hạng.
+        if (rec.internal && !rec.ghost && rec.viewerIsRealPlayer) {
+          out.add(rec);
+        }
       }
       if (reachedStart || list.length < pageSize) break;
     }

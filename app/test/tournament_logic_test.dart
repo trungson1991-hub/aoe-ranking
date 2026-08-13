@@ -131,6 +131,47 @@ void main() {
     });
   });
 
+  group('resolveKo — chưa đá xong thì CHƯA có vô địch', () {
+    test('bán kết 2 chưa đá -> chung kết không có đội thắng', () {
+      final t = tourn(
+        teamIds: ['s1', 's2', 's3', 's4'],
+        groups: [
+          const GroupDef(name: 'A', teamIds: ['s1', 's2', 's3', 's4'])
+        ],
+        groupFixtures: [fx('g', 'A', 's1', 's2', sa: 1)],
+        koFixtures: [
+          fx('ko_r0_m0', 'KO', 's1', 's4', sa: 1), // bán kết 1 xong
+          fx('ko_r0_m1', 'KO', 's2', 's3'), // bán kết 2 CHƯA đá
+          fx('ko_r1_m0', 'KO', null, null), // chung kết
+        ],
+      );
+      final ck = resolveKo(t).last.first;
+      expect(ck.aId, 's1');
+      expect(ck.bId, isNull);
+      // Ô trống ở vòng sau = chờ đối thủ, KHÔNG phải bye.
+      expect(ck.winnerId, isNull);
+      expect(ck.isBye, isFalse);
+      expect(koChampionId(t), isNull);
+    });
+
+    test('bye ở vòng ĐẦU vẫn cho đi tiếp bình thường', () {
+      final t = tourn(
+        teamIds: ['s1', 's2', 's3'],
+        groups: [const GroupDef(name: 'A', teamIds: ['s1', 's2', 's3'])],
+        groupFixtures: [fx('g', 'A', 's1', 's2', sa: 1)],
+        koFixtures: [
+          fx('ko_r0_m0', 'KO', 's1', null), // bye
+          fx('ko_r0_m1', 'KO', 's2', 's3', sa: 1),
+          fx('ko_r1_m0', 'KO', null, null, sa: 1), // s1 thắng chung kết
+        ],
+      );
+      final rounds = resolveKo(t);
+      expect(rounds[0][0].winnerId, 's1'); // bye đi tiếp
+      expect(rounds[0][0].isBye, isTrue);
+      expect(koChampionId(t), 's1');
+    });
+  });
+
   group('koFixturesAfterEdit', () {
     test('đổi đội thắng vòng trước -> reset tỉ số vòng sau', () {
       final t = tourn(

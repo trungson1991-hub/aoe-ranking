@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money.dart';
+import '../../../core/widgets/message_view.dart';
 import '../../leaderboard/models/leaderboard.dart';
 import '../logic/fixture_edit.dart';
 import '../logic/share_link.dart';
@@ -53,14 +54,17 @@ class TournamentDetailPage extends StatelessWidget {
       body: StreamBuilder<Tournament?>(
         stream: service.watchOne(tournamentId),
         builder: (context, snap) {
+          if (snap.hasError) {
+            return MessageView(
+                icon: Icons.cloud_off, text: 'Lỗi kết nối:\n${snap.error}');
+          }
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
           final t = snap.data;
           if (t == null) {
-            return const Center(
-                child: Text('Giải không tồn tại',
-                    style: TextStyle(color: Colors.white54)));
+            return const MessageView(
+                icon: Icons.search_off, text: 'Giải không tồn tại hoặc đã bị xoá');
           }
           return _Body(t: t, service: service, roster: roster);
         },
@@ -102,6 +106,27 @@ class _BodyState extends State<_Body> {
     return ok;
   }
 
+  /// Ghi lên Firebase kèm timeout + báo lỗi. Trước đây mọi thao tác ghi ở
+  /// trang này chạy kiểu "bắn rồi quên": mất mạng thì lỗi rơi vào hư không,
+  /// giao diện không đổi và người dùng tưởng đã lưu.
+  Future<bool> _saveGuarded(Tournament updated, {String? successMessage}) async {
+    try {
+      await service.save(updated).timeout(const Duration(seconds: 15));
+      if (mounted && successMessage != null) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(successMessage)));
+      }
+      return true;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lưu không thành công: $e')),
+        );
+      }
+      return false;
+    }
+  }
+
   // ---- Nhập / sửa tỉ số ----
 
   Future<void> _editGroupFixture(Fixture f) async {
@@ -120,7 +145,7 @@ class _BodyState extends State<_Body> {
     );
     if (res == null) return;
     // Khớp theo (id, stage) — không ghi đè nhầm trận của bảng khác.
-    await service.save(t.copyWith(
+    await _saveGuarded(t.copyWith(
         groupFixtures: groupFixturesAfterEdit(t, f, res.$1, res.$2)));
   }
 
@@ -142,7 +167,8 @@ class _BodyState extends State<_Body> {
     if (res == null) return;
     final updated = s.fixture.copyWith(scoreA: res.$1, scoreB: res.$2);
     // Đội thắng đổi -> tỉ số các vòng sau trong nhánh được reset tự động.
-    await service.save(t.copyWith(koFixtures: koFixturesAfterEdit(t, updated)));
+    await _saveGuarded(
+        t.copyWith(koFixtures: koFixturesAfterEdit(t, updated)));
   }
 
   /// Đổi tên giải nhanh bằng dialog (không phải vào trang sửa đội).
@@ -182,12 +208,39 @@ class _BodyState extends State<_Body> {
     );
     ctrl.dispose();
     if (newName == null || newName.isEmpty || newName == t.name) return;
-    await service.save(t.copyWith(name: newName));
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Đã đổi tên giải thành "$newName"')),
-      );
-    }
+    await _saveGuarded(t.copyWith(name: newName),
+        successMessage: 'Đã đổi tên giải thành "$newName"');
+  }
+
+  /// Dựng lại nhánh KO từ bảng xếp hạng vòng bảng hiện tại.
+  /// Cần thiết khi sửa kết quả vòng bảng làm đổi thứ hạng — nhánh cũ vẫn
+  /// giữ cặp đấu theo bảng xếp hạng cũ và trước đây không có cách nào sửa.
+  Future<void> _rebuildKnockout() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tạo lại nhánh loại trực tiếp?',
+            style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'Nhánh sẽ được dựng lại theo thứ hạng vòng bảng hiện tại. '
+          'Toàn bộ tỉ số đã nhập ở vòng loại trực tiếp sẽ mất.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Huỷ')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Tạo lại',
+                  style: TextStyle(color: AppColors.gold))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    if (!await _ensurePin()) return;
+    await _saveGuarded(t.copyWith(koFixtures: buildKnockout(t)),
+        successMessage: 'Đã tạo lại nhánh loại trực tiếp');
   }
 
   Future<void> _openEditTeams() async {
@@ -230,7 +283,14 @@ class _BodyState extends State<_Body> {
       if (ok != true || !mounted) return;
     }
     if (!await _ensurePin()) return;
-    await service.save(t.copyWith(status: status));
+    // Ghi lại thời điểm kết thúc: điểm thưởng giải chỉ tính trong cửa sổ
+    // 1 năm gần nhất nên cần mốc này (giải cũ chưa có thì script tạm dùng
+    // ngày tạo). Mở lại giải thì xoá mốc.
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    await _saveGuarded(t.copyWith(
+      status: status,
+      finishedAt: status == kStatusFinished ? now : 0,
+    ));
   }
 
   Future<void> _deleteTournament() async {
@@ -257,14 +317,27 @@ class _BodyState extends State<_Body> {
     // Xoá là thao tác huỷ diệt -> luôn hỏi PIN, kể cả khi đã mở khoá.
     if (!await askPin(context, t.pin)) return;
     if (!mounted) return;
-    await service.delete(t.id);
-    if (mounted) Navigator.of(context).pop();
+    // Lấy Navigator/Messenger TRƯỚC khi xoá: RTDB bắn sự kiện ngay lập tức
+    // khiến StreamBuilder bỏ trang này khỏi cây widget, lúc đó `mounted` đã
+    // false và lệnh pop sau `await` sẽ không bao giờ chạy (kẹt màn hình).
+    final nav = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await service.delete(t.id).timeout(const Duration(seconds: 15));
+      nav.pop();
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Xoá không thành công: $e')));
+    }
   }
 
   // ---- Build ----
 
   @override
   Widget build(BuildContext context) {
+    // Giải nhánh KO 1 lần cho cả trang (trước đây resolveKo chạy 3 lần/build).
+    final rounds = t.structure == kStructureGroupsKnockout
+        ? resolveKo(t)
+        : const <List<KoSlot>>[];
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720),
@@ -290,7 +363,7 @@ class _BodyState extends State<_Body> {
             ),
             const SizedBox(height: 8),
             ..._statusBanner(),
-            if (!t.isCancelled) ..._championSection(),
+            if (!t.isCancelled) ..._championSection(rounds),
             for (final g in t.groups) ...[
               _Standings(
                 t: t,
@@ -304,7 +377,7 @@ class _BodyState extends State<_Body> {
               _fixtures(g),
               const SizedBox(height: 20),
             ],
-            if (t.structure == kStructureGroupsKnockout) _koSection(),
+            if (t.structure == kStructureGroupsKnockout) _koSection(rounds),
           ],
         ),
       ),
@@ -478,8 +551,9 @@ class _BodyState extends State<_Body> {
     );
   }
 
-  // Banner chung cuộc (nếu đã có kết quả).
-  List<Widget> _championSection() {
+  // Banner chung cuộc (nếu đã có kết quả). [rounds] là nhánh KO đã giải sẵn
+  // (tính 1 lần cho cả trang thay vì mỗi chỗ gọi resolveKo lại một lần).
+  List<Widget> _championSection(List<List<KoSlot>> rounds) {
     if (t.structure == kStructureRoundRobin) {
       if (!groupStageDone(t) || t.groups.isEmpty) return const [];
       final st = standingsFor(t, t.groups.first.teamIds, t.groupFixtures);
@@ -491,9 +565,10 @@ class _BodyState extends State<_Body> {
         ),
       ];
     }
-    final champId = koChampionId(t);
+    if (rounds.isEmpty || rounds.last.length != 1) return const [];
+    final fin = rounds.last.first;
+    final champId = fin.winnerId;
     if (champId == null) return const [];
-    final fin = resolveKo(t).last.first;
     final loserId = champId == fin.aId ? fin.bId : fin.aId;
     return [
       ChampionBanner(
@@ -562,7 +637,7 @@ class _BodyState extends State<_Body> {
             itemCount: fs.length,
             // onReorderItem: newIndex đã được điều chỉnh sẵn sau khi bỏ item.
             onReorderItem: (oldI, newI) {
-              service.save(t.copyWith(
+              _saveGuarded(t.copyWith(
                   groupFixtures: reorderStageFixtures(
                       t.groupFixtures, g.name, oldI, newI)));
             },
@@ -589,23 +664,23 @@ class _BodyState extends State<_Body> {
 
   // ---- Loại trực tiếp ----
 
-  Widget _koSection() {
-    // Giải đã đóng mà chưa tạo nhánh KO -> không hiện gợi ý/nút tạo nữa.
-    if (!t.isActive && t.koFixtures.isEmpty) return const SizedBox.shrink();
-    if (!groupStageDone(t)) {
-      return Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Text(
-          'Hoàn tất tất cả trận vòng bảng để mở nhánh loại trực tiếp.',
-          style: TextStyle(color: Colors.white54),
-        ),
-      );
-    }
+  Widget _koSection(List<List<KoSlot>> rounds) {
+    // CHƯA có nhánh KO: hướng dẫn / nút tạo (tuỳ vòng bảng xong chưa).
     if (t.koFixtures.isEmpty) {
+      if (!t.isActive) return const SizedBox.shrink();
+      if (!groupStageDone(t)) {
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Text(
+            'Hoàn tất tất cả trận vòng bảng để mở nhánh loại trực tiếp.',
+            style: TextStyle(color: Colors.white54),
+          ),
+        );
+      }
       return Center(
         child: FilledButton.icon(
           style: FilledButton.styleFrom(
@@ -615,20 +690,42 @@ class _BodyState extends State<_Body> {
               style: TextStyle(fontWeight: FontWeight.w800)),
           onPressed: () async {
             if (!await _ensurePin()) return;
-            await service.save(t.copyWith(koFixtures: buildKnockout(t)));
+            await _saveGuarded(t.copyWith(koFixtures: buildKnockout(t)));
           },
         ),
       );
     }
-    final rounds = resolveKo(t);
+    // ĐÃ có nhánh KO -> luôn hiển thị, kể cả khi ai đó sửa lại một trận vòng
+    // bảng làm `groupStageDone` thành false (trước đây cả nhánh biến mất).
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Loại trực tiếp',
-            style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w900)),
+        Row(
+          children: [
+            const Text('Loại trực tiếp',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900)),
+            const Spacer(),
+            if (t.isActive)
+              TextButton.icon(
+                onPressed: _rebuildKnockout,
+                icon: const Icon(Icons.refresh, size: 16, color: Colors.white54),
+                label: const Text('Tạo lại nhánh',
+                    style: TextStyle(color: Colors.white54, fontSize: 12)),
+              ),
+          ],
+        ),
+        if (!groupStageDone(t))
+          const Padding(
+            padding: EdgeInsets.only(bottom: 6),
+            child: Text(
+              '⚠️ Vòng bảng có trận chưa xong — nhánh dưới đây dựng theo kết quả '
+              'lúc tạo. Bấm "Tạo lại nhánh" sau khi hoàn tất vòng bảng.',
+              style: TextStyle(color: AppColors.gold, fontSize: 12),
+            ),
+          ),
         const SizedBox(height: 8),
         for (final round in rounds) ...[
           Padding(

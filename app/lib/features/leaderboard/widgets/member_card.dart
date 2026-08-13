@@ -5,10 +5,14 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/member_avatar.dart';
+import '../../../core/widgets/win_rate_bar.dart';
 import '../../match_history/pages/user_history_page.dart';
 import '../models/leaderboard.dart';
 
 const Map<int, String> _medals = {1: '🥇', 2: '🥈', 3: '🥉'};
+
+// Khởi tạo 1 lần thay vì trong build() của từng thẻ.
+final _dateFmt = DateFormat('dd/MM/yyyy');
 
 /// Thẻ 1 thành viên trên bảng xếp hạng. Bấm vào mở lịch sử trận.
 class MemberCard extends StatelessWidget {
@@ -54,7 +58,7 @@ class MemberCard extends StatelessWidget {
                 BoxShadow(color: accent.withValues(alpha: 0.32), blurRadius: 12),
               ],
             ),
-            child: _row(context, big: true),
+            child: _row(big: true),
           )
         : Container(
             margin: const EdgeInsets.only(bottom: 10),
@@ -64,27 +68,25 @@ class MemberCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: accent.withValues(alpha: 0.35)),
             ),
-            child: _row(context, big: false),
+            child: _row(big: false),
           );
 
-    // RepaintBoundary: cô lập vẽ từng thẻ -> cuộn không repaint cả list.
-    return RepaintBoundary(
-      child: GestureDetector(
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => UserHistoryPage(
-              member: member,
-              sinceEpoch: sinceEpoch,
-              teamUuids: teamUuids,
-            ),
+    // ListView đã tự bọc RepaintBoundary cho mỗi con -> không bọc thêm.
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => UserHistoryPage(
+            member: member,
+            sinceEpoch: sinceEpoch,
+            teamUuids: teamUuids,
           ),
         ),
-        child: card,
       ),
+      child: card,
     );
   }
 
-  Widget _row(BuildContext context, {required bool big}) {
+  Widget _row({required bool big}) {
     final m = member;
     final s = stat;
     final avatar =
@@ -145,12 +147,12 @@ class MemberCard extends StatelessWidget {
               ),
               if (s.games > 0) ...[
                 const SizedBox(height: 5),
-                _winRateBar(s.winRate),
+                WinRateBar(winRate: s.winRate, width: 140),
               ],
               if (m.lastPlayedVN != null) ...[
                 const SizedBox(height: 3),
                 Text(
-                  'Chơi gần nhất: ${DateFormat('dd/MM/yyyy').format(m.lastPlayedVN!)}',
+                  'Chơi gần nhất: ${_dateFmt.format(m.lastPlayedVN!)}',
                   style: const TextStyle(color: Colors.white38, fontSize: 11),
                 ),
               ],
@@ -188,28 +190,6 @@ class MemberCard extends StatelessWidget {
     );
   }
 
-  // Thanh tỉ lệ thắng mỏng: phần thắng màu xanh, phần thua màu nền.
-  Widget _winRateBar(double winRate) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(2),
-      child: SizedBox(
-        height: 4,
-        width: 140,
-        child: Row(
-          children: [
-            Expanded(
-              flex: (winRate * 100).round().clamp(0, 100),
-              child: Container(color: AppColors.win.withValues(alpha: 0.8)),
-            ),
-            Expanded(
-              flex: 100 - (winRate * 100).round().clamp(0, 100),
-              child: Container(color: Colors.white12),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 /// Huy chương đung đưa như treo trên dây, tắt dần rồi ĐỨNG YÊN hẳn.

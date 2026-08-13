@@ -12,17 +12,16 @@ class TournamentService {
   static Map<String, dynamic> _asMap(Object? v) =>
       Map<String, dynamic>.from(v as Map);
 
-  // Theo dõi realtime danh sách giải (mới nhất trước).
+  // Theo dõi realtime danh sách giải. Không sắp xếp ở đây — trang hiển thị
+  // tự sắp theo tiêu chí của nó (đang diễn ra trước, rồi mới nhất trước).
   Stream<List<Tournament>> watchAll() {
     return _ref.onValue.map((event) {
       final val = event.snapshot.value;
       if (val == null) return <Tournament>[];
-      final map = _asMap(val);
-      final list = map.entries
+      return _asMap(val)
+          .entries
           .map((e) => Tournament.fromDoc(e.key, _asMap(e.value)))
           .toList();
-      list.sort((a, b) => b.createdAt - a.createdAt);
-      return list;
     });
   }
 
@@ -33,6 +32,15 @@ class TournamentService {
       if (val == null) return null;
       return Tournament.fromDoc(id, _asMap(val));
     });
+  }
+
+  // Đọc 1 lần bản mới nhất (dùng trước khi ghi để không đè mất thay đổi
+  // của người khác trong lúc mình đang mở trang sửa).
+  Future<Tournament?> getOnce(String id) async {
+    final snap = await _ref.child(id).get();
+    final val = snap.value;
+    if (val == null) return null;
+    return Tournament.fromDoc(id, _asMap(val));
   }
 
   // Tạo giải mới, trả về id.

@@ -71,7 +71,7 @@ class _MethodSheet extends StatelessWidget {
             bullet('Trên 1000 = trên trung bình team, dưới 1000 = dưới trung bình.'),
             bullet('Dưới 10 trận: nhãn "ELO tạm" — chưa đủ trận để tin cậy.'),
             bullet('Độ quen tay: cộng nhẹ +√(số trận) điểm (100 trận ≈ +10, 200 trận ≈ +14).'),
-            bullet('Giải đấu trên web khi bấm "Kết thúc giải": mỗi thành viên đội vô địch +15, á quân +7 điểm — tính vào bảng Tổng và bảng thể loại của giải.'),
+            bullet('Giải đấu trên web khi bấm "Kết thúc giải": mỗi thành viên đội vô địch +15, á quân +7 điểm — tính vào bảng Tổng và bảng thể loại của giải. Chỉ tính giải kết thúc trong 1 năm gần nhất.'),
             const SizedBox(height: 16),
             const Text('4. Các bảng', style: h),
             const SizedBox(height: 8),

@@ -11,6 +11,8 @@ import '../../../core/theme/app_colors.dart';
 /// KHÔNG vẽ lại nội dung thẻ từng frame). Vệt sáng là 1 layer nhỏ
 /// trượt ngang; animation kết thúc thì overlay được gỡ hẳn khỏi cây
 /// widget — sau đó thẻ tĩnh 100% như cũ, cuộn không tốn thêm gì.
+const _kNoOffset = AlwaysStoppedAnimation<Offset>(Offset.zero);
+
 class TopThreeCard extends StatefulWidget {
   const TopThreeCard({super.key, required this.rank, required this.child});
 
@@ -29,9 +31,11 @@ class _TopThreeCardState extends State<TopThreeCard>
   );
   bool _done = false;
 
-  late final double _t0 = 0.10 * (widget.rank - 1); // so le theo hạng
+  // So le theo hạng. Chặn trên để các Interval bên dưới không vượt 1.0
+  // (Interval assert end <= 1.0) nếu widget được dùng cho hạng > 3.
+  late final double _t0 = (0.10 * (widget.rank - 1)).clamp(0.0, 0.38);
 
-  late final Animation<double> _fade = CurvedAnimation(
+  late final CurvedAnimation _fade = CurvedAnimation(
     parent: _c,
     curve: Interval(_t0, _t0 + 0.30, curve: Curves.easeOut),
   );
@@ -49,7 +53,7 @@ class _TopThreeCardState extends State<TopThreeCard>
     ),
   );
   // Vệt sáng chạy sau khi thẻ đã vào sân.
-  late final Animation<double> _shine = CurvedAnimation(
+  late final CurvedAnimation _shine = CurvedAnimation(
     parent: _c,
     curve: Interval(_t0 + 0.40, _t0 + 0.62, curve: Curves.easeInOut),
   );
@@ -68,49 +72,56 @@ class _TopThreeCardState extends State<TopThreeCard>
 
   @override
   void dispose() {
+    _fade.dispose();
+    _shine.dispose();
     _c.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_done) return widget.child;
+    // Khi xong hiệu ứng phải GIỮ NGUYÊN kiểu widget, chỉ thay animation bằng
+    // hằng số. Nếu trả thẳng widget.child thì cây con bị dựng lại, làm huy
+    // chương bên trong mất State và chạy lại animation từ đầu.
+    final done = _done;
     return FadeTransition(
-      opacity: _fade,
+      opacity: done ? kAlwaysCompleteAnimation : _fade,
       child: SlideTransition(
-        position: _slide,
+        position: done ? _kNoOffset : _slide,
         child: ScaleTransition(
-          scale: _scale,
+          scale: done ? kAlwaysCompleteAnimation : _scale,
           child: Stack(
             children: [
               widget.child,
-              Positioned.fill(
-                // Thẻ có margin-bottom bên trong -> né vùng margin.
-                bottom: 12,
-                child: IgnorePointer(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: AnimatedBuilder(
-                      animation: _shine,
-                      // Vệt sáng vẽ 1 lần (child), mỗi frame chỉ đổi vị trí.
-                      builder: (_, bar) => Align(
-                        alignment: Alignment(-2.2 + 4.4 * _shine.value, 0),
-                        child: bar,
-                      ),
-                      child: Transform.rotate(
-                        angle: 0.35,
-                        child: Container(
-                          width: 56,
-                          height: 240,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                AppColors.gold.withValues(alpha: 0),
-                                AppColors.gold.withValues(alpha: 0.30),
-                                Colors.white.withValues(alpha: 0.42),
-                                AppColors.gold.withValues(alpha: 0.30),
-                                AppColors.gold.withValues(alpha: 0),
-                              ],
+              if (!done)
+                Positioned.fill(
+                  // Thẻ có margin-bottom bên trong -> né vùng margin.
+                  bottom: 12,
+                  child: IgnorePointer(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: AnimatedBuilder(
+                        animation: _shine,
+                        // Vệt sáng vẽ 1 lần (child), mỗi frame chỉ đổi vị trí.
+                        builder: (_, bar) => Align(
+                          alignment: Alignment(-2.2 + 4.4 * _shine.value, 0),
+                          child: bar,
+                        ),
+                        child: Transform.rotate(
+                          angle: 0.35,
+                          child: Container(
+                            width: 56,
+                            height: 240,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppColors.gold.withValues(alpha: 0),
+                                  AppColors.gold.withValues(alpha: 0.30),
+                                  Colors.white.withValues(alpha: 0.42),
+                                  AppColors.gold.withValues(alpha: 0.30),
+                                  AppColors.gold.withValues(alpha: 0),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -118,7 +129,6 @@ class _TopThreeCardState extends State<TopThreeCard>
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),

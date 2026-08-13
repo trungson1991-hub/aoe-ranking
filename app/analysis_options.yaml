@@ -1,6 +1,14 @@
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  errors:
+    # Nâng cảnh báo thành lỗi để CI chặn được (flutter analyze fail).
+    unused_import: error
+    unused_local_variable: error
+    dead_code: error
+
 linter:
   rules:
-    prefer_const_constructors: true
+    # prefer_const_constructors đã có sẵn trong flutter_lints.
     prefer_final_locals: true
+    unawaited_futures: true

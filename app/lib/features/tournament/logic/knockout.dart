@@ -83,11 +83,23 @@ List<Fixture> buildKnockout(Tournament t) {
   return out;
 }
 
-/// Đội thắng 1 cặp KO (có xét bye: 1 bên trống -> bên kia thắng).
-String? koWinner(Fixture f, int firstTo, String? aId, String? bId) {
-  if (aId != null && bId == null) return aId;
-  if (bId != null && aId == null) return bId;
-  if (aId == null || bId == null) return null;
+/// Đội thắng 1 cặp KO.
+///
+/// [isFirstRound] quyết định ý nghĩa của ô trống:
+/// - Vòng 0: 1 bên trống = BYE, bên kia đi tiếp luôn.
+/// - Vòng sau: ô trống nghĩa là trận vòng trước CHƯA đá xong, nên chưa
+///   có đội thắng (nếu coi là bye sẽ tuyên bố vô địch khi giải mới đá dở).
+String? koWinner(
+  Fixture f,
+  int firstTo,
+  String? aId,
+  String? bId, {
+  required bool isFirstRound,
+}) {
+  if (aId == null || bId == null) {
+    if (!isFirstRound) return null;
+    return aId ?? bId; // bye ở vòng đầu
+  }
   if (f.scoreA >= firstTo) return aId;
   if (f.scoreB >= firstTo) return bId;
   return null;
@@ -95,14 +107,12 @@ String? koWinner(Fixture f, int firstTo, String? aId, String? bId) {
 
 class KoSlot {
   final int round;
-  final int match;
   final String? aId;
   final String? bId;
   final Fixture fixture;
   final String? winnerId;
   const KoSlot({
     required this.round,
-    required this.match,
     required this.aId,
     required this.bId,
     required this.fixture,
@@ -150,10 +160,10 @@ List<List<KoSlot>> resolveKo(Tournament t) {
         aId = winners[r - 1]?[2 * m];
         bId = winners[r - 1]?[2 * m + 1];
       }
-      final w = koWinner(f, t.firstTo, aId, bId);
+      final w = koWinner(f, t.firstTo, aId, bId, isFirstRound: r == 0);
       winners.putIfAbsent(r, () => {})[m] = w;
-      slots.add(KoSlot(
-          round: r, match: m, aId: aId, bId: bId, fixture: f, winnerId: w));
+      slots.add(
+          KoSlot(round: r, aId: aId, bId: bId, fixture: f, winnerId: w));
     }
     out.add(slots);
   }
@@ -171,14 +181,21 @@ List<Fixture> koFixturesAfterEdit(Tournament t, Fixture edited) {
 
   // Tìm slot cũ để biết cặp đấu (aId/bId suy từ nhánh — sửa tỉ số không đổi cặp).
   KoSlot? slot;
+  outer:
   for (final round in resolveKo(t)) {
     for (final s in round) {
-      if (s.fixture.id == edited.id) slot = s;
+      if (s.fixture.id == edited.id) {
+        slot = s;
+        break outer;
+      }
     }
   }
   if (slot == null) return list;
-  final oldWinner = koWinner(slot.fixture, t.firstTo, slot.aId, slot.bId);
-  final newWinner = koWinner(edited, t.firstTo, slot.aId, slot.bId);
+  final isFirst = slot.round == 0;
+  final oldWinner =
+      koWinner(slot.fixture, t.firstTo, slot.aId, slot.bId, isFirstRound: isFirst);
+  final newWinner =
+      koWinner(edited, t.firstTo, slot.aId, slot.bId, isFirstRound: isFirst);
   if (oldWinner == newWinner) return list;
 
   var (r, m) = p;

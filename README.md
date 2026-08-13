@@ -28,19 +28,24 @@ Web tính điểm ELO riêng cho các thành viên team dựa trên API lịch s
 - **Điểm giải đấu** (trọng số nhỏ): các giải trên web **đã bấm "Kết thúc giải"** — mỗi
   thành viên đội vô địch **+15**, á quân **+7** điểm ELO (`TOURNEY_BONUS` trong
   `scripts/team.mjs`), cộng vào bảng Tổng và bảng thể loại của giải (1v1/2v2/...).
+  Chỉ tính giải kết thúc trong **cửa sổ trượt 1 năm** (`TOURNEY_WINDOW_MONTHS`) — dài hơn
+  cửa sổ trận đấu vì thành tích giải đáng nhớ lâu hơn, nhưng vẫn rơi ra theo thời gian để
+  người đã nghỉ chơi không giữ điểm mãi. Mốc tính là lúc bấm "Kết thúc giải" (giải kết thúc
+  từ trước khi có mốc này thì tạm lấy ngày tạo giải).
   Script đọc kết quả giải từ Firebase RTDB qua REST; Firebase lỗi thì bỏ qua phần này,
   không ảnh hưởng cập nhật ELO.
 - Xếp hạng theo ELO giảm dần (hạng 1, 2, 3...).
 - Ngoài ELO **Tổng**, còn tính ELO **riêng cho từng thể loại 1v1 / 2v2 / 3v3 / 4v4** (chỉ trận
   cân người; trận lệch như 3v4 chỉ tính vào Tổng). Web có nút chọn chế độ để xem từng bảng.
-- Tự chạy **7:00 / 14:00 / 21:00 hàng ngày** (giờ VN) bằng GitHub Actions cron.
+- Tự chạy **7:00 / 14:00 / 21:00 hàng ngày** (giờ VN) bằng GitHub Actions cron, và chạy lại
+  mỗi khi push thay đổi vào `app/**` hoặc `scripts/**`.
 
 ## Kiến trúc
 
 ```
 AOE_Ranking/
 ├── scripts/
-│   ├── team.mjs          # ⭐ Danh sách team, cửa sổ tháng (WINDOW_MONTHS), cấu hình tier
+│   ├── team.mjs          # ⭐ Danh sách team, cửa sổ tháng, trọng số quen tay & thưởng giải
 │   └── compute.mjs       # Fetch API + tính ELO cửa sổ 6 tháng (Node, không cần package)
 ├── app/                  # Flutter web (đọc data/leaderboard.json qua HTTP)
 │   ├── web/data/leaderboard.json   # Dữ liệu hiển thị (do script ghi)
@@ -51,7 +56,8 @@ AOE_Ranking/
 │   │       ├── leaderboard/        #   Bảng xếp hạng (models/services/pages/widgets)
 │   │       ├── match_history/      #   Lịch sử & chi tiết trận
 │   │       └── tournament/         #   Giải đấu (models / logic / services / pages / widgets)
-│   └── test/                       # Unit test logic giải đấu (KO, vòng tròn, bảng điểm)
+│   └── test/                       # Unit test (logic giải đấu, luật lọc trận)
+│                                   # + widget test (thẻ ELO, dialog tỉ số, lịch sử trận)
 ├── .github/workflows/update.yml    # Cron 3 lần/ngày + build + deploy Pages
 └── README.md
 ```
@@ -87,16 +93,36 @@ cd app && flutter pub get && flutter run -d chrome
 > Repo **public** thì GitHub Actions miễn phí không giới hạn phút. Repo private cũng có
 > 2000 phút/tháng miễn phí — vẫn dư dùng.
 
+### Nếu bạn fork repo này (quan trọng)
+
+Tính năng **Giải đấu** dùng Firebase Realtime Database. `app/lib/firebase_options.dart` và
+`FIREBASE_DB_URL` trong `scripts/team.mjs` đang trỏ vào project Firebase của repo gốc — fork
+mà không đổi thì bạn sẽ ghi/xoá giải trong cơ sở dữ liệu của người khác. Hãy tạo project
+Firebase riêng (bật Realtime Database), thay 2 chỗ trên, và đặt lại rules cho phù hợp.
+
+Lưu ý bảo mật: PIN của giải được lưu dạng văn bản thường và **kiểm tra ở phía trình duyệt**,
+nên nó chỉ ngăn thao tác nhầm chứ không phải cơ chế bảo mật. Bảng xếp hạng ELO không dùng
+Firebase nên không bị ảnh hưởng.
+
 ## Vận hành
 
 - ELO **tự cập nhật** 7:00 / 14:00 / 21:00 hàng ngày. Muốn cập nhật ngay: **Actions → Run workflow**.
 - Nút 🔄 trên web để tải lại dữ liệu mới nhất.
-- **Đổi thành viên / tier / độ dài cửa sổ**: sửa `scripts/team.mjs` (mảng `TEAM`, `TIERS`,
-  hằng `WINDOW_MONTHS`) rồi commit & push. Mỗi lần chạy đều tính lại toàn bộ nên có hiệu lực ngay.
+- **Đổi thành viên / độ dài cửa sổ / trọng số**: sửa `scripts/team.mjs` (`TEAM`,
+  `WINDOW_MONTHS`, `ACTIVITY_WEIGHT`, `TOURNEY_BONUS`) rồi commit & push. Mỗi lần chạy đều
+  tính lại toàn bộ nên có hiệu lực ngay.
+- **Chạy test trước khi push**: `cd app && flutter analyze && flutter test`
+  (CI cũng chạy 2 lệnh này và sẽ chặn deploy nếu hỏng).
 
 ## Ghi chú
 
-- API GPlay dùng: `GET https://game-offline.gplay.vn/game/offline/api/v2.1/statistics/history`
-  với `user_uuid`, `game_code=aoe`, `size`, `index` (public, CORS mở).
-- Các trận cũ (trước khi GPlay bật hệ elo) có `elo_change = 0`: vẫn được tính vào số trận /
-  thắng-thua nhưng không làm đổi ELO.
+- Nguồn dữ liệu (đều public, CORS mở):
+  - `GET .../statistics/history` — lịch sử trận (`user_uuid`, `game_code=aoe`, `size`, `index`)
+  - `GET .../statistics/profile` — tên + avatar hiện tại của thành viên
+  - Firebase RTDB REST (`/tournaments.json`) — kết quả giải đấu để cộng điểm thưởng
+- ELO **không** lấy từ field `elo_change` của API; script tự tính lại toàn bộ từ các chỉ số
+  trong `statistics` nên mọi trận trong cửa sổ đều ảnh hưởng ELO.
+- **Điểm phong độ được cân về tâm 0.5 mỗi trận.** Đây là điều kiện để ELO không rò rỉ:
+  chuẩn hoá min-max trên chỉ số lệch phải (1 người carry) cho tổng nhỏ hơn kỳ vọng, khiến
+  hệ mất điểm mỗi trận và mất nhiều hơn ở trận đông người — trước khi sửa, bảng 4v4 trung
+  bình 963 trong khi 1v1 là 998, tức người chơi 4v4 bị dìm ~35 điểm chỉ vì thể loại.

@@ -1,4 +1,5 @@
-// Cấu hình team & luật tính ELO. Sửa ở đây khi thêm/bớt thành viên hoặc đổi tier.
+// Cấu hình team & luật tính ELO. Sửa ở đây khi thêm/bớt thành viên,
+// đổi độ dài cửa sổ hoặc chỉnh trọng số quen tay / thưởng giải đấu.
 
 export const GAME_CODE = "aoe";
 
@@ -32,15 +33,12 @@ export const ACTIVITY_WEIGHT = 1;
 // thành viên đội vô địch/á quân được cộng vào bảng Tổng và bảng thể loại của giải.
 export const TOURNEY_BONUS = { champion: 15, runnerUp: 7 };
 
+// Cửa sổ trượt riêng cho điểm thưởng giải: chỉ tính giải kết thúc trong
+// N THÁNG gần nhất. Dài hơn cửa sổ trận đấu (thành tích giải đáng nhớ lâu hơn)
+// nhưng vẫn rơi ra theo thời gian, tránh việc người nghỉ chơi giữ điểm mãi.
+export const TOURNEY_WINDOW_MONTHS = 12;
+
 // Firebase RTDB chứa dữ liệu giải đấu (đọc công khai qua REST).
 export const FIREBASE_DB_URL =
   "https://aoe-ranking-default-rtdb.asia-southeast1.firebasedatabase.app";
 
-// Phân tier từ trên xuống theo ELO giảm dần. Tổng size nên bằng số thành viên.
-// Top 1 = 3 người, Top 2 = 2, Top 3 = 2, Top 4 = 3. (Top 5 chưa dùng.)
-export const TIERS = [
-  { label: "Top 1", size: 3 },
-  { label: "Top 2", size: 2 },
-  { label: "Top 3", size: 2 },
-  { label: "Top 4", size: 3 },
-];

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
-/// Avatar thành viên: ảnh từ URL, không có thì hiện chữ cái đầu của tên.
+/// Avatar thành viên: ảnh từ URL, không có (hoặc tải lỗi) thì hiện chữ cái
+/// đầu của tên. Không dùng `CircleAvatar.backgroundImage` vì khi ảnh lỗi nó
+/// để lại vòng tròn xám trống và ném lỗi ra console.
 class MemberAvatar extends StatelessWidget {
   const MemberAvatar({
     super.key,
@@ -17,16 +19,25 @@ class MemberAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final initial = Text(
+      name.isNotEmpty ? name[0].toUpperCase() : '?',
+      style: TextStyle(color: Colors.white, fontSize: radius * 0.75),
+    );
     return CircleAvatar(
       radius: radius,
       backgroundColor: AppColors.surfaceLight,
-      backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
       child: avatarUrl.isEmpty
-          ? Text(
-              name.isNotEmpty ? name[0].toUpperCase() : '?',
-              style: TextStyle(color: Colors.white, fontSize: radius * 0.75),
-            )
-          : null,
+          ? initial
+          : ClipOval(
+              child: Image.network(
+                avatarUrl,
+                width: radius * 2,
+                height: radius * 2,
+                fit: BoxFit.cover,
+                // Ảnh hỏng/404/CORS -> quay về chữ cái đầu thay vì ô trống.
+                errorBuilder: (_, __, ___) => Center(child: initial),
+              ),
+            ),
     );
   }
 }

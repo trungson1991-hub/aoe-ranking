@@ -113,12 +113,17 @@ class _TeamBars extends StatelessWidget {
 
   final MatchRecord record;
 
-  static const List<_Metric> _teamMetrics = [
-    _Metric('⚔️', 'Giết quân', _kills),
-    _Metric('🏰', 'Phá công trình', _razings),
-    _Metric('🪙', 'Đào vàng', _gold),
-    _Metric('🔬', 'Công nghệ', _tech),
-    _Metric('👥', 'Dân số', _population),
+  // Chọn lọc từ danh sách chung để nhãn/icon không bị lệch khi sửa một nơi.
+  static const _teamMetricLabels = [
+    'Giết quân',
+    'Phá công trình',
+    'Đào vàng',
+    'Công nghệ',
+    'Dân số',
+  ];
+  static final List<_Metric> _teamMetrics = [
+    for (final label in _teamMetricLabels)
+      _metrics.firstWhere((m) => m.label == label),
   ];
 
   int _sum(List<PlayerStat> side, _Metric m) =>
@@ -126,7 +131,9 @@ class _TeamBars extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final redWon = record.red.isNotEmpty && record.red.first.win;
+    // Xét cả đội: người đầu danh sách có thể thiếu dữ liệu thống kê
+    // (result = 0) khiến cả đội bị coi là thua và cúp gắn nhầm bên.
+    final redWon = record.red.any((p) => p.win);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -360,9 +367,10 @@ class _ComparisonTable extends StatelessWidget {
 
   Widget _metricRow(_Metric m, List<PlayerStat> players,
       {required bool striped}) {
+    if (players.isEmpty) return const SizedBox.shrink();
     final values = [for (final p in players) m.get(p)];
     final maxV = values.fold(0, (a, b) => a > b ? a : b);
-    final minV = values.fold(values.first, (a, b) => a < b ? a : b);
+    final minV = values.reduce((a, b) => a < b ? a : b);
     final best = m.lowerBetter ? minV : maxV;
     final allEqual = maxV == minV;
 

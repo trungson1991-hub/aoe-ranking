@@ -39,8 +39,11 @@ MatchRecord record2v2({int createdTime = 1750000000}) => MatchRecord(
         player('m1', 'Mate', win: true, color: 2, kills: 30, losses: 20, gold: 700),
       ],
       blue: [
-        player('o1', 'Rival1', win: false, color: 3, kills: 20, losses: 40, gold: 500),
-        player('o2', 'Rival2', win: false, color: 4, kills: 10, losses: 30, gold: 400),
+        // Số giết chọn sao cho TỔNG đội (21+12=33) không trùng bất kỳ giá trị
+        // nào khác trên màn hình — nếu không, assertion tổng sẽ luôn đúng
+        // kể cả khi hàm tính tổng bị hỏng.
+        player('o1', 'Rival1', win: false, color: 3, kills: 21, losses: 40, gold: 500),
+        player('o2', 'Rival2', win: false, color: 4, kills: 12, losses: 31, gold: 400),
       ],
       viewerUuid: 'v1',
       internal: true,
@@ -73,9 +76,9 @@ void main() {
       // empires_type 10 phải hiện Shang (bug cũ: map lệch 1 -> hiện Roman).
       expect(find.text('Shang'), findsNWidgets(4));
       expect(find.text('Roman'), findsNothing);
-      // Tổng giết quân mỗi đội trong khối tương quan: Đỏ 80, Xanh 30.
+      // Tổng giết quân mỗi đội trong khối tương quan: Đỏ 50+30=80, Xanh 21+12=33.
       expect(find.text('80'), findsOneWidget);
-      expect(find.text('30'), findsWidgets);
+      expect(find.text('33'), findsOneWidget);
     });
   });
 

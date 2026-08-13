@@ -57,12 +57,12 @@ class Fixture {
     return null;
   }
 
-  Fixture copyWith({String? aId, String? bId, int? scoreA, int? scoreB}) =>
-      Fixture(
+  // Chỉ cho sửa tỉ số: cặp đấu do lịch/nhánh quyết định, không sửa lẻ.
+  Fixture copyWith({int? scoreA, int? scoreB}) => Fixture(
         id: id,
         stage: stage,
-        aId: aId ?? this.aId,
-        bId: bId ?? this.bId,
+        aId: aId,
+        bId: bId,
         scoreA: scoreA ?? this.scoreA,
         scoreB: scoreB ?? this.scoreB,
       );
@@ -117,13 +117,15 @@ class Tournament {
   final int advancePerGroup; // số đội đi tiếp mỗi bảng (groups_knockout)
   final int createdAt; // epoch giây
   final String status; // kStatusActive | kStatusFinished | kStatusCancelled
+  final int finishedAt; // epoch giây, 0 nếu chưa kết thúc lần nào
   final List<int> prizes; // tiền thưởng (đ) theo hạng: [nhất, nhì, ba]
   final List<TournTeam> teams;
   final List<GroupDef> groups;
   final List<Fixture> groupFixtures; // vòng bảng / vòng tròn
   final List<Fixture> koFixtures; // loại trực tiếp
 
-  const Tournament({
+  // Không const: có bảng tra đội dựng sẵn bên dưới (late final).
+  Tournament({
     required this.id,
     required this.name,
     required this.pin,
@@ -133,6 +135,7 @@ class Tournament {
     required this.advancePerGroup,
     required this.createdAt,
     this.status = kStatusActive,
+    this.finishedAt = 0,
     this.prizes = const [],
     required this.teams,
     required this.groups,
@@ -144,17 +147,16 @@ class Tournament {
   bool get isFinished => status == kStatusFinished;
   bool get isCancelled => status == kStatusCancelled;
 
-  TournTeam? teamById(String? id) {
-    if (id == null) return null;
-    for (final t in teams) {
-      if (t.id == id) return t;
-    }
-    return null;
-  }
+  // Dựng 1 lần rồi tra O(1): trang chi tiết gọi teamById 4 lần cho mỗi trận,
+  // mỗi lần vẽ lại.
+  late final Map<String, TournTeam> _byId = {for (final t in teams) t.id: t};
+
+  TournTeam? teamById(String? id) => id == null ? null : _byId[id];
 
   Tournament copyWith({
     String? name,
     String? status,
+    int? finishedAt,
     List<int>? prizes,
     List<TournTeam>? teams,
     List<GroupDef>? groups,
@@ -171,6 +173,7 @@ class Tournament {
         advancePerGroup: advancePerGroup,
         createdAt: createdAt,
         status: status ?? this.status,
+        finishedAt: finishedAt ?? this.finishedAt,
         prizes: prizes ?? this.prizes,
         teams: teams ?? this.teams,
         groups: groups ?? this.groups,
@@ -187,6 +190,7 @@ class Tournament {
         'advance_per_group': advancePerGroup,
         'created_at': createdAt,
         'status': status,
+        'finished_at': finishedAt,
         'prizes': prizes,
         'teams': teams.map((e) => e.toMap()).toList(),
         'groups': groups.map((e) => e.toMap()).toList(),
@@ -212,6 +216,8 @@ class Tournament {
       createdAt:
           (m['created_at'] is num) ? (m['created_at'] as num).toInt() : 0,
       status: (m['status'] ?? kStatusActive) as String,
+      finishedAt:
+          (m['finished_at'] is num) ? (m['finished_at'] as num).toInt() : 0,
       prizes: ((m['prizes'] as List?) ?? const [])
           .map((e) => (e is num) ? e.toInt() : 0)
           .toList(),

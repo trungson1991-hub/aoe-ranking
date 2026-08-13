@@ -30,13 +30,15 @@ class UserHistoryPage extends StatefulWidget {
     super.key,
     required this.member,
     required this.sinceEpoch,
-    required this.teamUuids,
+    required this.roster,
     this.service = const LeaderboardService(),
   });
 
   final Member member;
   final int sinceEpoch;
-  final Set<String> teamUuids;
+
+  /// Toàn đội theo uuid — lọc trận nội bộ và tra avatar/trang trí đồng đội.
+  final Map<String, Member> roster;
   final LeaderboardService service;
 
   @override
@@ -53,7 +55,7 @@ class _UserHistoryPageState extends State<UserHistoryPage> {
     _future = widget.service.fetchUserHistory(
       widget.member.userUuid,
       sinceEpoch: widget.sinceEpoch,
-      teamUuids: widget.teamUuids,
+      teamUuids: widget.roster.keys.toSet(),
     );
   }
 
@@ -62,6 +64,33 @@ class _UserHistoryPageState extends State<UserHistoryPage> {
     final m = widget.member;
     return Scaffold(
       appBar: AppBar(
+        // Ảnh nền của người chơi làm nền thanh tiêu đề (nếu có).
+        flexibleSpace: m.backgroundUrl.isEmpty
+            ? null
+            : Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    m.backgroundUrl,
+                    fit: BoxFit.cover,
+                    gaplessPlayback: true,
+                    opacity: const AlwaysStoppedAnimation(0.45),
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          AppColors.surface.withValues(alpha: 0.92),
+                          AppColors.surface.withValues(alpha: 0.55),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
         title: Row(
           children: [
             MemberAvatar(
@@ -69,6 +98,7 @@ class _UserHistoryPageState extends State<UserHistoryPage> {
               avatarUrl: m.avatarUrl,
               radius: 16,
               vipFrameUrl: m.vipFrameUrl,
+              effectUrl: m.effectUrl,
             ),
             const SizedBox(width: 10),
             Flexible(
@@ -114,7 +144,10 @@ class _UserHistoryPageState extends State<UserHistoryPage> {
                             // ListView.builder đã tự bọc RepaintBoundary.
                             itemBuilder: (_, i) => i == 0
                                 ? _SummaryCard(matches: matches)
-                                : _MatchTile(rec: matches[i - 1]),
+                                : _MatchTile(
+                                    rec: matches[i - 1],
+                                    roster: widget.roster,
+                                  ),
                           ),
                   ),
                 ],
@@ -306,9 +339,40 @@ class _SummaryCard extends StatelessWidget {
 }
 
 class _MatchTile extends StatelessWidget {
-  const _MatchTile({required this.rec});
+  const _MatchTile({required this.rec, required this.roster});
 
   final MatchRecord rec;
+  final Map<String, Member> roster;
+
+  /// Hàng avatar nhỏ (kèm khung nếu có) cho một nhóm người chơi.
+  /// Chỉ tính người chơi THỰC — bỏ người xem chung slot màu, để số mặt
+  /// khớp với nhãn thể loại (2v2 thì đúng 2 mặt).
+  Widget _faces(List<PlayerStat> players) {
+    final seen = <String>{};
+    final shown = [
+      for (final p in players)
+        if (rec.realPlayerUuids.contains(p.uuid) &&
+            roster.containsKey(p.uuid) &&
+            seen.add(p.uuid))
+          roster[p.uuid]!,
+    ];
+    if (shown.isEmpty) return const SizedBox.shrink();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final m in shown)
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: MemberAvatar(
+              name: m.name,
+              avatarUrl: m.avatarUrl,
+              radius: 11,
+              vipFrameUrl: m.vipFrameUrl,
+            ),
+          ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -319,7 +383,9 @@ class _MatchTile extends StatelessWidget {
     final v = rec.viewer;
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => MatchDetailPage(record: rec)),
+        MaterialPageRoute(
+          builder: (_) => MatchDetailPage(record: rec, roster: roster),
+        ),
       ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
@@ -365,7 +431,12 @@ class _MatchTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    // Wrap thay Row+Spacer: trận đông người (4v4) trên màn
+                    // hẹp thì hàng avatar tự xuống dòng thay vì tràn ra ngoài.
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 4,
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -380,12 +451,13 @@ class _MatchTile extends StatelessWidget {
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700)),
                         ),
-                        const SizedBox(width: 8),
                         Text(
                           _dateTimeFmt.format(rec.dateVN),
                           style: const TextStyle(
                               color: Colors.white54, fontSize: 12),
                         ),
+                        // Mặt các đối thủ (kèm khung VIP nếu có).
+                        _faces(rec.oppTeam),
                       ],
                     ),
                     const SizedBox(height: 4),

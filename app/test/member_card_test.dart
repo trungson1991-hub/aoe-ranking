@@ -20,7 +20,7 @@ Widget wrap(ModeStat stat) => MaterialApp(
           stat: stat,
           accent: Colors.grey,
           sinceEpoch: 0,
-          teamUuids: const {'u1'},
+          roster: {'u1': member()},
         ),
       ),
     );

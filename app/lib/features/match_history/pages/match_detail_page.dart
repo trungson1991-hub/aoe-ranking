@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/member_avatar.dart';
+import '../../leaderboard/models/leaderboard.dart';
 import '../data/aoe_constants.dart';
 import '../models/match_record.dart';
 
@@ -45,9 +47,16 @@ int _tribute(PlayerStat p) => p.tribute;
 int _age(PlayerStat p) => p.age;
 
 class MatchDetailPage extends StatelessWidget {
-  const MatchDetailPage({super.key, required this.record});
+  const MatchDetailPage({
+    super.key,
+    required this.record,
+    this.roster = const {},
+  });
 
   final MatchRecord record;
+
+  /// Thành viên team theo uuid — để lấy avatar + đồ trang trí.
+  final Map<String, Member> roster;
 
   @override
   Widget build(BuildContext context) {
@@ -98,7 +107,7 @@ class MatchDetailPage extends StatelessWidget {
               const SizedBox(height: 14),
               _TeamBars(record: r),
               const SizedBox(height: 14),
-              _ComparisonTable(record: r),
+              _ComparisonTable(record: r, roster: roster),
             ],
           ),
         ),
@@ -251,9 +260,10 @@ class _TeamBars extends StatelessWidget {
 /// Bảng so sánh mọi người chơi: cột = người, hàng = chỉ số.
 /// Ô tốt nhất mỗi hàng được tô sáng; có thanh tỉ lệ để so bằng mắt.
 class _ComparisonTable extends StatelessWidget {
-  const _ComparisonTable({required this.record});
+  const _ComparisonTable({required this.record, required this.roster});
 
   final MatchRecord record;
+  final Map<String, Member> roster;
 
   static const double _labelW = 118;
   static const double _colW = 86;
@@ -271,7 +281,12 @@ class _ComparisonTable extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          // Wrap thay Row+Spacer: trận đông người trên màn hẹp thì gợi ý
+          // "kéo ngang" tự xuống dòng thay vì tràn khỏi thẻ.
+          Wrap(
+            spacing: 8,
+            runSpacing: 2,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               const Text('SO SÁNH TỪNG NGƯỜI',
                   style: TextStyle(
@@ -279,7 +294,6 @@ class _ComparisonTable extends StatelessWidget {
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.5)),
-              const Spacer(),
               if (players.length > 4)
                 const Text('kéo ngang để xem thêm →',
                     style: TextStyle(color: Colors.white24, fontSize: 10)),
@@ -306,6 +320,25 @@ class _ComparisonTable extends StatelessWidget {
   bool _isViewer(PlayerStat p) => p.uuid == record.viewerUuid;
   bool _inRed(PlayerStat p) => record.red.any((x) => x.uuid == p.uuid);
 
+  /// Avatar của người chơi; người ngoài team (không có trong roster) thì
+  /// hiện chữ cái đầu theo tên lấy từ dữ liệu trận.
+  /// Ô có chiều cao cố định để cột có khung và cột không khung căn thẳng
+  /// hàng với nhau (nếu không, tâm avatar lệch nhau vài pixel).
+  Widget _avatarOf(PlayerStat p) {
+    final m = roster[p.uuid];
+    return SizedBox(
+      height: MemberAvatar.maxOuterSize(15),
+      child: Center(
+        child: MemberAvatar(
+          name: m?.name ?? p.label,
+          avatarUrl: m?.avatarUrl ?? '',
+          radius: 15,
+          vipFrameUrl: m?.vipFrameUrl ?? '',
+        ),
+      ),
+    );
+  }
+
   Widget _headerRow(List<PlayerStat> players) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -324,6 +357,9 @@ class _ComparisonTable extends StatelessWidget {
             ),
             child: Column(
               children: [
+                // Avatar + khung VIP của người chơi (nếu là thành viên team).
+                _avatarOf(p),
+                const SizedBox(height: 4),
                 Container(
                   width: 12,
                   height: 12,

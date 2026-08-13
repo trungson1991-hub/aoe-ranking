@@ -178,7 +178,7 @@ class _Content extends StatelessWidget {
     // Người 6 tháng không có trận -> tách xuống cuối.
     final inactive = board.members.where((m) => m.lastPlayed <= 0).toList()
       ..sort((a, b) => a.name.compareTo(b.name));
-    final teamUuids = board.members.map((m) => m.userUuid).toSet();
+    final roster = {for (final m in board.members) m.userUuid: m};
 
     return Center(
       child: ConstrainedBox(
@@ -244,7 +244,7 @@ class _Content extends StatelessWidget {
                     stat: active[i].stat,
                     accent: _rankColor(i + 1),
                     sinceEpoch: board.startEpoch,
-                    teamUuids: teamUuids,
+                    roster: roster,
                     animateMedal: true,
                   ),
                 )
@@ -258,7 +258,7 @@ class _Content extends StatelessWidget {
                       ? _rankColor(i + 1)
                       : AppColors.muted,
                   sinceEpoch: board.startEpoch,
-                  teamUuids: teamUuids,
+                  roster: roster,
                 ),
             if (inactive.isNotEmpty) ...[
               const SizedBox(height: 18),
@@ -288,7 +288,7 @@ class _Content extends StatelessWidget {
                     stat: m.statFor(view),
                     accent: AppColors.inactive,
                     sinceEpoch: board.startEpoch,
-                    teamUuids: teamUuids,
+                    roster: roster,
                   ),
                 ),
             ],

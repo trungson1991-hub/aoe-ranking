@@ -23,7 +23,7 @@ class MemberCard extends StatelessWidget {
     required this.stat,
     required this.accent,
     required this.sinceEpoch,
-    required this.teamUuids,
+    required this.roster,
     this.animateMedal = false,
   });
 
@@ -32,7 +32,10 @@ class MemberCard extends StatelessWidget {
   final ModeStat stat;
   final Color accent;
   final int sinceEpoch;
-  final Set<String> teamUuids;
+
+  /// Toàn đội theo uuid — dùng để lọc trận nội bộ và để các màn hình con
+  /// tra ra avatar + đồ trang trí của từng người.
+  final Map<String, Member> roster;
 
   /// Huy chương đung đưa tắt dần khi vào trang (chỉ dùng cho top 3).
   final bool animateMedal;
@@ -91,7 +94,7 @@ class MemberCard extends StatelessWidget {
           builder: (_) => UserHistoryPage(
             member: member,
             sinceEpoch: sinceEpoch,
-            teamUuids: teamUuids,
+            roster: roster,
           ),
         ),
       ),

@@ -96,7 +96,17 @@ void main() {
             modes: {},
           ),
           sinceEpoch: 0,
-          teamUuids: const {'v1', 'm1', 'o1', 'o2'},
+          roster: {
+            for (final u in ['v1', 'm1', 'o1', 'o2'])
+              u: Member(
+                userUuid: u,
+                name: u,
+                avatarUrl: '',
+                lastPlayed: 1,
+                total: const ModeStat(),
+                modes: const {},
+              ),
+          },
           service: _FakeService(matches),
         ),
       ));

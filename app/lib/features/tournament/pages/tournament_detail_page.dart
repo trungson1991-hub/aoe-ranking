@@ -12,6 +12,7 @@ import '../logic/standings.dart';
 import '../models/tournament.dart';
 import '../services/tournament_service.dart';
 import '../widgets/champion_banner.dart';
+import '../widgets/team_faces.dart';
 import '../widgets/fixture_card.dart';
 import '../widgets/pin_dialog.dart';
 import '../widgets/score_dialog.dart';
@@ -98,6 +99,13 @@ class _BodyState extends State<_Body> {
   String _teamName(String? id) => t.teamById(id)?.name ?? '?';
   List<String> _teamMembers(String? id) =>
       t.teamById(id)?.memberNames ?? const [];
+  List<String> _teamUuids(String? id) =>
+      t.teamById(id)?.memberUuids ?? const [];
+
+  /// Bảng tra thành viên team để lấy avatar + đồ trang trí.
+  late final Map<String, Member> _roster = {
+    for (final m in widget.roster) m.userUuid: m,
+  };
 
   Future<bool> _ensurePin() async {
     if (_unlocked) return true;
@@ -340,6 +348,7 @@ class _BodyState extends State<_Body> {
               _Standings(
                 t: t,
                 group: g,
+                roster: _roster,
                 // Giải nhiều bảng: tô sáng các đội trong vùng đi tiếp.
                 advanceCount: t.structure == kStructureGroupsKnockout
                     ? t.advancePerGroup
@@ -571,6 +580,9 @@ class _BodyState extends State<_Body> {
           bName: _teamName(f.bId),
           aMembers: _teamMembers(f.aId),
           bMembers: _teamMembers(f.bId),
+          aMemberUuids: _teamUuids(f.aId),
+          bMemberUuids: _teamUuids(f.bId),
+          roster: _roster,
           scoreA: f.scoreA,
           scoreB: f.scoreB,
           aWon: f.winnerId(t.firstTo) == f.aId && f.aId != null,
@@ -724,6 +736,9 @@ class _BodyState extends State<_Body> {
               bName: s.bId != null ? _teamName(s.bId) : (s.isBye ? '—' : '?'),
               aMembers: _teamMembers(s.aId),
               bMembers: _teamMembers(s.bId),
+              aMemberUuids: _teamUuids(s.aId),
+              bMemberUuids: _teamUuids(s.bId),
+              roster: _roster,
               scoreA: s.fixture.scoreA,
               scoreB: s.fixture.scoreB,
               aWon: s.winnerId != null && s.winnerId == s.aId,
@@ -749,11 +764,13 @@ class _Standings extends StatelessWidget {
     required this.t,
     required this.group,
     required this.advanceCount,
+    required this.roster,
   });
 
   final Tournament t;
   final GroupDef group;
   final int advanceCount;
+  final Map<String, Member> roster;
 
   @override
   Widget build(BuildContext context) {
@@ -816,20 +833,36 @@ class _Standings extends StatelessWidget {
                                 ? AppColors.gold
                                 : Colors.white70,
                             fontWeight: FontWeight.w700))),
-                Expanded(
-                    child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(rows[i].team.name,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600)),
-                    if (rows[i].team.memberNames.isNotEmpty)
-                      Text(rows[i].team.memberNames.join(', '),
-                          style: const TextStyle(
-                              color: Colors.white38, fontSize: 10)),
-                  ],
-                )),
+                Expanded(child: LayoutBuilder(builder: (context, cs) {
+                  final uuids = rows[i].team.memberUuids;
+                  final facesWidth = TeamFaces.widthFor(uuids, roster);
+                  // Cột này còn rất hẹp sau các cột số; chỉ chèn avatar khi
+                  // tên đội vẫn còn đủ chỗ, nếu không tên bị bóp xuống dòng
+                  // từng chữ (ở 320px với đội 4 người chỉ còn ~10px).
+                  final showFaces =
+                      facesWidth > 0 && cs.maxWidth - facesWidth >= 92;
+                  return Row(
+                    children: [
+                      if (showFaces)
+                        TeamFaces(uuids: uuids, roster: roster),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(rows[i].team.name,
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600)),
+                            if (rows[i].team.memberNames.isNotEmpty)
+                              Text(rows[i].team.memberNames.join(', '),
+                                  style: const TextStyle(
+                                      color: Colors.white38, fontSize: 10)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                })),
                 SizedBox(
                     width: 34,
                     child: Text('${rows[i].played}',
@@ -910,3 +943,5 @@ class _RenameDialogState extends State<_RenameDialog> {
     );
   }
 }
+
+

@@ -28,15 +28,19 @@ class MemberAvatar extends StatelessWidget {
   // (khung là vòng tròn rỗng giữa, phần rỗng vừa khít avatar).
   // Giữ 2 tỉ lệ gần nhau để thẻ có và không có trang trí không lệch nhau
   // quá nhiều về bề ngang (chữ bên cạnh bị dồn dòng).
-  static const _frameScale = 1.32;
-  static const _effectScale = 1.36;
+  static const frameScale = 1.32;
+  static const effectScale = 1.36;
+
+  /// Bề rộng tối đa một avatar bán kính [radius] có thể chiếm khi kèm
+  /// trang trí — dùng để chừa chỗ khi xếp nhiều avatar cạnh nhau.
+  static double maxOuterSize(double radius) => radius * 2 * effectScale;
 
   double get _size => radius * 2;
 
   /// Kích thước ô chứa (gồm phần trang trí tràn ra ngoài) — để chừa chỗ.
   double get outerSize => (vipFrameUrl.isEmpty && effectUrl.isEmpty)
       ? _size
-      : _size * (effectUrl.isNotEmpty ? _effectScale : _frameScale);
+      : _size * (effectUrl.isNotEmpty ? effectScale : frameScale);
 
   @override
   Widget build(BuildContext context) {
@@ -75,12 +79,12 @@ class MemberAvatar extends StatelessWidget {
           if (effectUrl.isNotEmpty)
             BlendMask(
               blendMode: BlendMode.screen,
-              child: _decoration(effectUrl, _size * _effectScale),
+              child: _decoration(effectUrl, _size * effectScale),
             ),
           avatar,
           // Khung có nền trong suốt sẵn -> vẽ thẳng.
           if (vipFrameUrl.isNotEmpty)
-            _decoration(vipFrameUrl, _size * _frameScale),
+            _decoration(vipFrameUrl, _size * frameScale),
         ],
       ),
     );

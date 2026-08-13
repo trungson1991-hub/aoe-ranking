@@ -1,17 +1,25 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
 import '../../match_history/models/match_record.dart';
 import '../models/leaderboard.dart';
 
+// URL web đã deploy — dùng cho app mobile (nơi không có Uri.base như trên web).
+const String kDeployedBaseUrl = 'https://trungson1991-hub.github.io/aoe-ranking/';
+
 class LeaderboardService {
   const LeaderboardService();
 
-  // Đọc file tĩnh data/leaderboard.json (nằm cạnh web build, cùng origin).
+  // Đọc file tĩnh data/leaderboard.json.
+  //  - Web: lấy tương đối theo origin hiện tại.
+  //  - Mobile (Android/iOS): lấy tuyệt đối từ site đã deploy.
   // Thêm tham số chống cache để luôn lấy bản mới nhất do GitHub Action ghi.
   Future<Leaderboard> fetch() async {
-    final base = Uri.base.resolve('data/leaderboard.json');
+    final base = kIsWeb
+        ? Uri.base.resolve('data/leaderboard.json')
+        : Uri.parse('${kDeployedBaseUrl}data/leaderboard.json');
     final uri = base.replace(queryParameters: {
       ...base.queryParameters,
       '_': DateTime.now().millisecondsSinceEpoch.toString(),

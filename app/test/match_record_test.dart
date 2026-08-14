@@ -69,17 +69,30 @@ void main() {
       expect(r.ghost, isTrue);
     });
 
-    test('tổng giết + mất quân < 10 -> ghost', () {
+    test('tổng giết + mất quân < 5 -> ghost', () {
+      final r = parse(
+        red: ['a'],
+        blue: ['b'],
+        stats: {
+          'a': stat(color: 1, kills: 1, losses: 1),
+          'b': stat(color: 2, kills: 1, losses: 1, result: 2),
+        },
+        team: {'a', 'b'},
+      );
+      expect(r.ghost, isTrue); // kd = 4
+    });
+
+    test('đúng ngưỡng 5 -> KHÔNG còn là ghost', () {
       final r = parse(
         red: ['a'],
         blue: ['b'],
         stats: {
           'a': stat(color: 1, kills: 2, losses: 1),
-          'b': stat(color: 2, kills: 1, losses: 2, result: 2),
+          'b': stat(color: 2, kills: 1, losses: 1, result: 2),
         },
         team: {'a', 'b'},
       );
-      expect(r.ghost, isTrue);
+      expect(r.ghost, isFalse); // kd = 5
     });
 
     test('đủ giao tranh -> không ghost', () {
@@ -174,6 +187,92 @@ void main() {
         viewer: 'me',
       );
       expect(r.viewerIsRealPlayer, isTrue);
+    });
+  });
+
+  group('người xem chung slot không được lọt vào phần hiển thị', () {
+    // Dựng theo trận thật (room 810709): đội Đỏ có 2 người cùng
+    // empires_color=1 — thực chất là 1v1, người thứ hai chỉ xem chung slot và
+    // mang y hệt số liệu của người khác.
+    MatchRecord sharedSlot() => parse(
+          red: ['dark', 'chim'],
+          blue: ['minh'],
+          stats: {
+            'dark': stat(color: 1, kills: 93, losses: 129, result: 2),
+            'chim': stat(color: 1, kills: 128, losses: 93, result: 2),
+            'minh': stat(color: 3, kills: 128, losses: 93),
+          },
+          team: {'dark', 'chim', 'minh'},
+          viewer: 'minh',
+        );
+
+    test('bảng so sánh chỉ còn người chơi thực', () {
+      final r = sharedSlot();
+      expect(r.realAll.map((p) => p.uuid), ['dark', 'minh']);
+      expect(r.modeLabel, '1v1');
+    });
+
+    test('tổng của đội không bị cộng đôi', () {
+      final r = sharedSlot();
+      // Cộng cả người xem sẽ ra 93+128=221 thay vì 93.
+      expect(r.realRed.fold(0, (a, p) => a + p.kills), 93);
+      expect(r.realBlue.fold(0, (a, p) => a + p.kills), 128);
+    });
+
+    test('cùng màu -> cùng chỉ số, lấy theo người giữ slot', () {
+      final r = sharedSlot();
+      final chim = r.red.firstWhere((p) => p.uuid == 'chim');
+      // API trả cho 'chim' bộ 128/93 (copy nhầm của đối thủ 'minh'); phải bị
+      // thay bằng số của 'dark' — người giữ slot màu 1.
+      expect(chim.kills, 93);
+      expect(chim.losses, 129);
+      expect(chim.uuid, 'chim'); // danh tính vẫn giữ nguyên
+    });
+
+    test('ghost vẫn tính trên số THÔ để khớp compute.mjs', () {
+      // Thô: 3+0 (dark) + 0+0 (chim) + 1+0 (minh) = 4 < 5 -> trận ma.
+      // Nếu lỡ tính sau khi đồng bộ slot, 'chim' thành 3 -> kd=7 -> hết ma,
+      // và số trận trong app sẽ lệch số trận dùng để tính ELO.
+      final r = parse(
+        red: ['dark', 'chim'],
+        blue: ['minh'],
+        stats: {
+          'dark': stat(color: 1, kills: 3, losses: 0, result: 2),
+          'chim': stat(color: 1, kills: 0, losses: 0, result: 2),
+          'minh': stat(color: 3, kills: 1, losses: 0),
+        },
+        team: {'dark', 'chim', 'minh'},
+        viewer: 'minh',
+      );
+      expect(r.ghost, isTrue);
+    });
+
+    test('người chung slot vẫn hiện, gắn vào cột của người cùng màu', () {
+      final r = sharedSlot();
+      // 'chim' cùng màu với 'dark' -> treo vào cột của 'dark', không tự đứng cột.
+      expect(r.slotSharers['dark']!.map((p) => p.uuid), ['chim']);
+      expect(r.slotSharers.containsKey('minh'), isFalse);
+    });
+
+    test('thiếu màu (color 0) thì KHÔNG gộp, mỗi người một cột', () {
+      final r = parse(
+        red: ['a', 'a2'],
+        blue: ['b'],
+        stats: {
+          'a': stat(color: 0),
+          'a2': stat(color: 0),
+          'b': stat(color: 2, result: 2),
+        },
+        team: {'a', 'a2', 'b'},
+      );
+      expect(r.slotSharers, isEmpty);
+      expect(r.realAll.length, 3);
+    });
+
+    test('dòng "vs …" không kể tên người xem', () {
+      final r = sharedSlot();
+      expect(r.opponentNames, ['dark']);
+      expect(r.teammateNames, isEmpty);
     });
   });
 

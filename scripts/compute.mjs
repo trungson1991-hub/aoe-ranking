@@ -161,7 +161,9 @@ function isInternal(m) {
 }
 
 // Trận "ma" (loại): (1) một đội rỗng (Xv0 — không có đối thủ);
-// (2) tổng kills+losses < 10 (không có giao tranh thật).
+// (2) tổng kills+losses < 5 (không có giao tranh thật).
+// Ngưỡng này phải KHỚP MatchRecord.fromApi bên app Flutter, lệch là số trận
+// trên trang lịch sử khác số trận dùng để tính ELO.
 function isGhost(m) {
   const red = (m.red_team_members ?? []).length;
   const blue = (m.blue_team_members ?? []).length;
@@ -170,7 +172,7 @@ function isGhost(m) {
   for (const s of Object.values(m.statistics || {})) {
     kd += (s.kills ?? 0) + (s.losses ?? 0);
   }
-  return kd < 10;
+  return kd < 5;
 }
 
 // Người chơi THỰC của trận: nếu nhiều người cùng empires_color (cùng 1 slot), chỉ giữ

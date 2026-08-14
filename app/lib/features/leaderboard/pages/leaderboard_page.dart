@@ -28,9 +28,13 @@ const List<({String key, String label})> _views = [
 ];
 
 class LeaderboardPage extends StatefulWidget {
-  const LeaderboardPage({super.key, this.service});
+  const LeaderboardPage({super.key, this.service, this.preloaded});
 
   final LeaderboardService? service;
+
+  /// Dữ liệu splash đã nạp xong. Có sẵn thì trang mở ra là đã đầy đủ, không
+  /// nháy thêm một vòng quay nữa. Nút tải lại vẫn gọi API như thường.
+  final Leaderboard? preloaded;
 
   @override
   State<LeaderboardPage> createState() => _LeaderboardPageState();
@@ -47,7 +51,10 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
   void initState() {
     super.initState();
     _svc = widget.service ?? const LeaderboardService();
-    _future = _svc.fetch();
+    final pre = widget.preloaded;
+    // Splash đã precache avatar rồi, đánh dấu luôn để khỏi lặp lại vô ích.
+    _avatarsPrecached = pre != null;
+    _future = pre != null ? Future.value(pre) : _svc.fetch();
   }
 
   void _reload() => setState(() {

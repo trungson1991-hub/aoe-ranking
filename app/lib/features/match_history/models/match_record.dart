@@ -66,6 +66,33 @@ class PlayerStat {
       ? name
       : (uuid.length >= 6 ? uuid.substring(0, 6) : uuid);
 
+  /// Giữ danh tính (uuid + tên) nhưng lấy TOÀN BỘ chỉ số của [owner].
+  ///
+  /// Dùng cho người ngồi chung slot: cùng `empires_color` là cùng một slot
+  /// trong game nên phải cùng chỉ số. API vẫn trả cho họ một khối thống kê
+  /// riêng, nhưng khối đó SAI — đối chiếu dữ liệu thật thì nó trùng khít từng
+  /// chỉ số với một người chơi khác trong trận, kể cả người ở đội đối diện.
+  PlayerStat withStatsOf(PlayerStat owner) => PlayerStat(
+        uuid: uuid,
+        name: name,
+        color: owner.color,
+        empiresType: owner.empiresType,
+        win: owner.win,
+        kills: owner.kills,
+        losses: owner.losses,
+        razings: owner.razings,
+        gold: owner.gold,
+        villager: owner.villager,
+        population: owner.population,
+        technologies: owner.technologies,
+        exploration: owner.exploration,
+        tribute: owner.tribute,
+        age: owner.age,
+        age2Time: owner.age2Time,
+        age3Time: owner.age3Time,
+        age4Time: owner.age4Time,
+      );
+
   factory PlayerStat.fromApi(
       Map<String, dynamic> member, Map<String, dynamic> stats) {
     final uuid = (member['user_uuid'] ?? '') as String;
@@ -92,6 +119,22 @@ class PlayerStat {
       age3Time: _clickTime(_int(s['bronze_age_upgraded_time']), _age3ResearchMs),
       age4Time: _clickTime(_int(s['steel_age_upgraded_time']), _age4ResearchMs),
     );
+  }
+}
+
+/// Luật gốc về "slot": duyệt theo thứ tự red rồi blue, người ĐẦU TIÊN của mỗi
+/// `empires_color` là người giữ slot; ai cùng màu sau đó là ngồi chung slot với
+/// họ. color <= 0 = thiếu dữ liệu màu -> không gộp được, mỗi người một slot.
+/// Khớp `realPlayers()` trong scripts/compute.mjs.
+///
+/// Trả về từng người kèm người giữ slot của họ (`identical` = chính họ giữ).
+/// Cả lúc parse lẫn lúc dẫn xuất danh sách đều gọi hàm này: trước đây luật bị
+/// chép ra ba chỗ và chỉ khớp nhau bằng niềm tin.
+Iterable<(PlayerStat player, PlayerStat owner)> _bySlot(
+    Iterable<PlayerStat> ordered) sync* {
+  final ownerOfColor = <int, PlayerStat>{};
+  for (final p in ordered) {
+    yield p.color <= 0 ? (p, p) : (p, ownerOfColor.putIfAbsent(p.color, () => p));
   }
 }
 
@@ -128,21 +171,29 @@ class MatchRecord {
 
   late final bool win = viewer?.win ?? false;
   late final bool _viewerInRed = red.any((p) => p.uuid == viewerUuid);
-  List<PlayerStat> get myTeam => _viewerInRed ? red : blue;
-  List<PlayerStat> get oppTeam => _viewerInRed ? blue : red;
 
-  /// Uuid của những người chơi THỰC (khớp `realPlayers` trong compute.mjs):
-  /// nếu nhiều người cùng `empires_color` (chung một slot) thì chỉ người xuất
-  /// hiện đầu tiên được tính, những người sau là "viewer". color <= 0 nghĩa là
-  /// thiếu dữ liệu màu -> không gộp được, mỗi người là 1 slot riêng.
-  late final Set<String> realPlayerUuids = () {
-    final seenColor = <int>{};
-    final out = <String>{};
-    for (final p in all) {
-      if (p.color <= 0 || seenColor.add(p.color)) out.add(p.uuid);
+  /// Đội nhà / đội đối thủ — CHỈ người chơi thực, xem `realRed`.
+  List<PlayerStat> get myTeam => _viewerInRed ? realRed : realBlue;
+  List<PlayerStat> get oppTeam => _viewerInRed ? realBlue : realRed;
+
+  /// Chỉ mục slot, tính MỘT lượt cho cả hai câu hỏi "ai giữ slot" và "ai ngồi
+  /// chung với ai" — hai thứ này phải luôn nhất quán nên không được tính rời.
+  late final ({Set<String> owners, Map<String, List<PlayerStat>> sharers})
+      _slotIndex = () {
+    final owners = <String>{};
+    final sharers = <String, List<PlayerStat>>{};
+    for (final (p, owner) in _bySlot(all)) {
+      if (identical(p, owner)) {
+        owners.add(p.uuid);
+      } else {
+        (sharers[owner.uuid] ??= <PlayerStat>[]).add(p);
+      }
     }
-    return out;
+    return (owners: owners, sharers: sharers);
   }();
+
+  /// Uuid của những người chơi THỰC — mỗi slot đúng một người (xem `_bySlot`).
+  Set<String> get realPlayerUuids => _slotIndex.owners;
 
   /// Người đang xem có thực sự chơi trận này không (hay chỉ là viewer chung
   /// slot). Trận mà người xem là viewer KHÔNG được tính vào ELO của họ, nên
@@ -150,11 +201,27 @@ class MatchRecord {
   /// sẽ lệch với số trận trên bảng xếp hạng.
   bool get viewerIsRealPlayer => realPlayerUuids.contains(viewerUuid);
 
-  int _countReal(List<PlayerStat> side) =>
-      side.where((p) => realPlayerUuids.contains(p.uuid)).length;
+  /// Danh sách người chơi đã bỏ người xem chung slot. MỌI chỗ hiển thị số liệu
+  /// phải dùng các danh sách này chứ không phải `red`/`blue`/`all`: giữ người
+  /// xem lại sẽ đẻ ra một cột ma trùng y hệt số liệu người khác trong bảng so
+  /// sánh, và cộng đôi tổng của cả đội ở khối tương quan.
+  late final List<PlayerStat> realRed = _onlyReal(red);
+  late final List<PlayerStat> realBlue = _onlyReal(blue);
+  late final List<PlayerStat> realAll = [...realRed, ...realBlue];
 
-  late final int redCount = _countReal(red);
-  late final int blueCount = _countReal(blue);
+  List<PlayerStat> _onlyReal(List<PlayerStat> side) =>
+      [for (final p in side) if (realPlayerUuids.contains(p.uuid)) p];
+
+  /// Những người ngồi CHUNG slot với một người chơi thực, tra theo uuid của
+  /// người thực đó. Bảng so sánh hiện tên/avatar của họ trên cùng một cột.
+  ///
+  /// Chỉ số của họ đã được `fromApi` đồng bộ theo người giữ slot (xem
+  /// `PlayerStat.withStatsOf`), nên vẫn phải gộp cột: để riêng thì tổng của đội
+  /// bị cộng đôi và mọi hàng đều thành "hoà nhau".
+  Map<String, List<PlayerStat>> get slotSharers => _slotIndex.sharers;
+
+  late final int redCount = realRed.length;
+  late final int blueCount = realBlue.length;
   late final String modeLabel = '${redCount}v$blueCount';
   late final int? symmetricSize =
       (redCount == blueCount && redCount >= 1 && redCount <= 4)
@@ -192,19 +259,33 @@ class MatchRecord {
         ? Map<String, dynamic>.from(j['statistics'] as Map)
         : <String, dynamic>{};
 
-    final red = redM.map((m) => PlayerStat.fromApi(m, stats)).toList();
-    final blue = blueM.map((m) => PlayerStat.fromApi(m, stats)).toList();
-    final all = [...red, ...blue];
+    final rawRed = redM.map((m) => PlayerStat.fromApi(m, stats)).toList();
+    final rawBlue = blueM.map((m) => PlayerStat.fromApi(m, stats)).toList();
+    final rawAll = [...rawRed, ...rawBlue];
 
     final internal =
-        all.isNotEmpty && all.every((p) => teamSet.contains(p.uuid));
+        rawAll.isNotEmpty && rawAll.every((p) => teamSet.contains(p.uuid));
 
-    // Ghost: một đội rỗng (không có đối thủ) / tổng kills+losses < 10.
+    // Ghost: một đội rỗng (không có đối thủ) / tổng kills+losses < 5.
+    // Ngưỡng phải KHỚP isGhost() trong scripts/compute.mjs.
+    // Tính trên số THÔ, trước khi đồng bộ slot: isGhost() trong compute.mjs
+    // cộng thẳng m.statistics, lệch một trận là số trận ở đây khác số trận
+    // dùng để tính ELO.
     var kd = 0;
-    for (final p in all) {
+    for (final p in rawAll) {
       kd += p.kills + p.losses;
     }
-    final ghost = red.isEmpty || blue.isEmpty || kd < 10;
+    final ghost = rawRed.isEmpty || rawBlue.isEmpty || kd < 5;
+
+    // Cùng empires_color = cùng một slot trong game -> phải cùng chỉ số.
+    // Duyệt cả trận một lượt theo thứ tự red rồi blue (đúng thứ tự `_bySlot`)
+    // rồi mới cắt lại hai bên, để "người giữ slot" nhất quán với phần dẫn xuất.
+    final synced = [
+      for (final (p, owner) in _bySlot(rawAll))
+        identical(p, owner) ? p : p.withStatsOf(owner),
+    ];
+    final red = synced.sublist(0, rawRed.length);
+    final blue = synced.sublist(rawRed.length);
 
     return MatchRecord(
       createdTime: _int(j['created_time']),

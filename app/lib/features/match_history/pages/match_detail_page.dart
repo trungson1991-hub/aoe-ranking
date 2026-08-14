@@ -161,8 +161,10 @@ class _TeamBars extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Xét cả đội: người đầu danh sách có thể thiếu dữ liệu thống kê
-    // (result = 0) khiến cả đội bị coi là thua và cúp gắn nhầm bên.
-    final redWon = record.red.any((p) => p.win);
+    // (result = 0) khiến cả đội bị coi là thua và cúp gắn nhầm bên. Người
+    // thiếu màu vẫn được tính là người chơi thực nên cách này còn nguyên tác
+    // dụng dự phòng.
+    final redWon = record.realRed.any((p) => p.win);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -220,8 +222,8 @@ class _TeamBars extends StatelessWidget {
   }
 
   Widget _barRow(_Metric m) {
-    final red = _sum(record.red, m);
-    final blue = _sum(record.blue, m);
+    final red = _sum(record.realRed, m);
+    final blue = _sum(record.realBlue, m);
     final total = red + blue;
     return Column(
       children: [
@@ -290,7 +292,9 @@ class _ComparisonTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final players = record.all;
+    // Bỏ người xem chung slot: họ mang y hệt số liệu của người khác nên để lại
+    // sẽ thành một cột ma và làm mọi hàng "hoà nhau" một cách giả tạo.
+    final players = record.realAll;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -340,20 +344,37 @@ class _ComparisonTable extends StatelessWidget {
   bool _isViewer(PlayerStat p) => p.uuid == record.viewerUuid;
   bool _inRed(PlayerStat p) => record.red.any((x) => x.uuid == p.uuid);
 
-  /// Avatar của người chơi; người ngoài team (không có trong roster) thì
+  /// Avatar của một slot: thường 1 người, nhưng nếu có người ngồi chung thì
+  /// xếp cạnh nhau và thu nhỏ lại. Người ngoài team (không có trong roster)
   /// hiện chữ cái đầu theo tên lấy từ dữ liệu trận.
-  /// Ô có chiều cao cố định để cột có khung và cột không khung căn thẳng
-  /// hàng với nhau (nếu không, tâm avatar lệch nhau vài pixel).
-  Widget _avatarOf(PlayerStat p) {
-    final m = roster[p.uuid];
+  ///
+  /// Ô có chiều cao cố định theo bán kính lớn nhất để cột có khung và cột
+  /// không khung căn thẳng hàng (nếu không, tâm avatar lệch nhau vài pixel).
+  Widget _avatarOf(PlayerStat p, List<PlayerStat> sharers) {
+    final people = [p, ...sharers];
+    final radius = people.length > 1 ? 11.0 : 15.0;
     return SizedBox(
       height: MemberAvatar.maxOuterSize(15),
       child: Center(
-        child: MemberAvatar(
-          name: m?.name ?? p.label,
-          avatarUrl: m?.avatarUrl ?? '',
-          radius: 15,
-          vipFrameUrl: m?.vipFrameUrl ?? '',
+        // FittedBox: dữ liệu thật chỉ thấy tối đa 2 người/slot, nhưng đông hơn
+        // thì phải thu nhỏ chứ không được tràn ra ngoài cột.
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final x in people)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 1),
+                  child: MemberAvatar(
+                    name: roster[x.uuid]?.name ?? x.label,
+                    avatarUrl: roster[x.uuid]?.avatarUrl ?? '',
+                    radius: radius,
+                    vipFrameUrl: roster[x.uuid]?.vipFrameUrl ?? '',
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -364,60 +385,75 @@ class _ComparisonTable extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         const SizedBox(width: _labelW),
-        for (final p in players)
+        for (final p in players) _headerCell(p),
+      ],
+    );
+  }
+
+  /// Một cột = một SLOT trong game. Người ngồi chung slot hiện thêm tên/avatar
+  /// ở đây chứ không tách cột riêng: họ dùng chung một bộ số liệu, tách ra sẽ
+  /// cộng đôi tổng đội và biến mọi hàng thành "hoà nhau".
+  Widget _headerCell(PlayerStat p) {
+    final sharers = record.slotSharers[p.uuid] ?? const <PlayerStat>[];
+    return Container(
+      width: _colW,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      decoration: BoxDecoration(
+        color: _isViewer(p) ? AppColors.gold.withValues(alpha: 0.10) : null,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      child: Column(
+        children: [
+          // Avatar + khung VIP (nếu là thành viên team).
+          _avatarOf(p, sharers),
+          const SizedBox(height: 4),
           Container(
-            width: _colW,
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            width: 12,
+            height: 12,
             decoration: BoxDecoration(
-              color: _isViewer(p)
-                  ? AppColors.gold.withValues(alpha: 0.10)
-                  : null,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(8)),
-            ),
-            child: Column(
-              children: [
-                // Avatar + khung VIP của người chơi (nếu là thành viên team).
-                _avatarOf(p),
-                const SizedBox(height: 4),
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: slotColor(p.color),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  p.label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: _isViewer(p) ? AppColors.gold : Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Text(
-                  civName(p.empiresType),
-                  textAlign: TextAlign.center,
-                  style:
-                      const TextStyle(color: Colors.white38, fontSize: 10),
-                ),
-                const SizedBox(height: 4),
-                // Gạch màu đội (Đỏ/Xanh) dưới tên.
-                Container(
-                  height: 3,
-                  width: 40,
-                  decoration: BoxDecoration(
-                    color: _inRed(p) ? _redTeam : _blueTeam,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ],
+              color: slotColor(p.color),
+              shape: BoxShape.circle,
             ),
           ),
-      ],
+          const SizedBox(height: 4),
+          Text(
+            p.label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: _isViewer(p) ? AppColors.gold : Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          for (final s in sharers)
+            Text(
+              '+ ${s.label}',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: _isViewer(s) ? AppColors.gold : Colors.white70,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          Text(
+            sharers.isEmpty
+                ? civName(p.empiresType)
+                : '${civName(p.empiresType)} · chung slot',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white38, fontSize: 10),
+          ),
+          const SizedBox(height: 4),
+          // Gạch màu đội (Đỏ/Xanh) dưới tên.
+          Container(
+            height: 3,
+            width: 40,
+            decoration: BoxDecoration(
+              color: _inRed(p) ? _redTeam : _blueTeam,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

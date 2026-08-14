@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'core/theme/app_theme.dart';
-import 'features/leaderboard/pages/leaderboard_page.dart';
+import 'features/leaderboard/pages/splash_page.dart';
 
 class AoeRankingApp extends StatelessWidget {
   const AoeRankingApp({super.key});
@@ -15,7 +15,8 @@ class AoeRankingApp extends StatelessWidget {
       scrollBehavior:
           const MaterialScrollBehavior().copyWith(scrollbars: false),
       theme: buildAppTheme(),
-      home: const LeaderboardPage(),
+      // Splash tự nạp xong dữ liệu rồi mới thay bằng bảng xếp hạng.
+      home: const SplashPage(),
     );
   }
 }

@@ -22,3 +22,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    # Dùng cho splash Dart; bản iOS nằm riêng trong LaunchImage.imageset.
+    - assets/logo.png

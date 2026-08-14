@@ -2,16 +2,18 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 
-/// Màu quân theo empires_color (AoE, slot 1-8).
+/// Màu quân theo `empires_color` — ĐÚNG thứ tự màu của AoE, slot 1-8.
+/// Đây là màu người chơi nhìn thấy trong game, không phải bảng màu tự chọn:
+/// gán sai thì chấm màu trên bảng so sánh không khớp với màu quân trong trận.
 const Map<int, Color> kSlotColors = {
   1: Color(0xFF3B82F6), // xanh dương
   2: Color(0xFFEF4444), // đỏ
-  3: Color(0xFF22C55E), // xanh lá
-  4: Color(0xFFEAB308), // vàng
-  5: Color(0xFF06B6D4), // xanh ngọc
-  6: Color(0xFFEC4899), // hồng
+  3: Color(0xFFEAB308), // vàng
+  4: Color(0xFFA0522D), // nâu
+  5: Color(0xFFF97316), // cam
+  6: Color(0xFF22C55E), // xanh lá
   7: Color(0xFF9CA3AF), // xám
-  8: Color(0xFFF97316), // cam
+  8: Color(0xFF06B6D4), // xanh lơ (xanh ngọc)
 };
 
 Color slotColor(int empiresColor) => kSlotColors[empiresColor] ?? AppColors.muted;

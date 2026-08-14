@@ -1,5 +1,7 @@
 // Luật lọc/đếm trong MatchRecord phải KHỚP scripts/compute.mjs — nếu lệch,
 // số trận trên trang lịch sử sẽ khác số trận dùng để tính ELO.
+import 'package:aoe_ranking/features/match_history/data/aoe_constants.dart';
+import 'package:flutter/material.dart' show HSLColor;
 import 'package:aoe_ranking/features/match_history/models/match_record.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -38,6 +40,32 @@ MatchRecord parse({
     }, viewer, team);
 
 void main() {
+  test('bảng màu quân khớp thứ tự màu của AoE', () {
+    // Màu này là màu người chơi THẤY trong game. Gán sai thì chấm màu trên
+    // bảng so sánh không khớp màu quân trong trận — không có gì báo lỗi, chỉ
+    // người chơi tự nhận ra.
+    const expected = {
+      1: 'xanh dương', 2: 'đỏ', 3: 'vàng', 4: 'nâu',
+      5: 'cam', 6: 'xanh lá', 7: 'xám', 8: 'xanh lơ',
+    };
+    expect(kSlotColors.keys.toSet(), expected.keys.toSet());
+    // Chốt bằng sắc độ (hue) để không phụ thuộc mã màu chính xác.
+    int hue(int slot) => HSLColor.fromColor(kSlotColors[slot]!).hue.round();
+    expect(hue(1), inInclusiveRange(200, 250), reason: 'xanh dương');
+    expect(hue(2), anyOf(inInclusiveRange(0, 15), inInclusiveRange(345, 360)),
+        reason: 'đỏ');
+    expect(hue(3), inInclusiveRange(40, 60), reason: 'vàng');
+    expect(hue(5), inInclusiveRange(20, 40), reason: 'cam');
+    expect(hue(6), inInclusiveRange(90, 160), reason: 'xanh lá');
+    expect(hue(8), inInclusiveRange(170, 200), reason: 'xanh lơ');
+    // Nâu = cam sẫm và nhạt màu hơn -> phân biệt bằng độ sáng, không bằng hue.
+    final brown = HSLColor.fromColor(kSlotColors[4]!);
+    final orange = HSLColor.fromColor(kSlotColors[5]!);
+    expect(brown.lightness, lessThan(orange.lightness), reason: 'nâu sẫm hơn cam');
+    // Xám: gần như không có sắc.
+    expect(HSLColor.fromColor(kSlotColors[7]!).saturation, lessThan(0.2));
+  });
+
   group('internal — chỉ trận toàn người trong team', () {
     test('có người ngoài team -> không nội bộ', () {
       final r = parse(

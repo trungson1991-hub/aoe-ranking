@@ -96,6 +96,22 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  // Bảng so sánh đóng cứng chiều cao mỗi hàng (để cột nhãn ghim thẳng hàng với
+  // cột số), nên cỡ chữ hệ thống phóng to là kịch bản dễ tràn nhất.
+  testWidgets('chi tiết trận 4v4 không tràn khi phóng to cỡ chữ',
+      (tester) async {
+    await tester.binding.setSurfaceSize(_narrow);
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(
+      home: MediaQuery(
+        data: const MediaQueryData(textScaler: TextScaler.linear(1.6)),
+        child: MatchDetailPage(record: _match4v4(), roster: _roster8()),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   // Lỗi kiểu "bóp méo im lặng": không ném exception nên các test tràn ở trên
   // không bắt được — phải kiểm tra trực tiếp bề rộng hàng avatar.
   group('bảng điểm giải: hàng avatar không được nuốt hết chỗ của tên đội', () {

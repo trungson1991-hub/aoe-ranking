@@ -175,11 +175,14 @@ class _TeamBars extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.5)),
           const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          // Wrap chứ không Row: cỡ chữ hệ thống phóng to là hai chú thích
+          // tràn khỏi thẻ; cho phép xuống dòng thay vì vỡ layout.
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 18,
+            runSpacing: 4,
             children: [
               _legend('Đội Đỏ', _redTeam, redWon),
-              const SizedBox(width: 18),
               _legend('Đội Xanh', _blueTeam, !redWon),
             ],
           ),
@@ -259,11 +262,9 @@ class _TeamBars extends StatelessWidget {
                 ? Container(color: Colors.white12)
                 : Row(
                     children: [
-                      Expanded(
-                          flex: red, child: Container(color: _redTeam)),
+                      Expanded(flex: red, child: Container(color: _redTeam)),
                       if (red > 0 && blue > 0) const SizedBox(width: 2),
-                      Expanded(
-                          flex: blue, child: Container(color: _blueTeam)),
+                      Expanded(flex: blue, child: Container(color: _blueTeam)),
                     ],
                   ),
           ),
@@ -275,14 +276,51 @@ class _TeamBars extends StatelessWidget {
 
 /// Bảng so sánh mọi người chơi: cột = người, hàng = chỉ số.
 /// Ô tốt nhất mỗi hàng được tô sáng; có thanh tỉ lệ để so bằng mắt.
-class _ComparisonTable extends StatelessWidget {
+class _ComparisonTable extends StatefulWidget {
   const _ComparisonTable({required this.record, required this.roster});
 
   final MatchRecord record;
   final Map<String, Member> roster;
 
-  static const double _labelW = 118;
+  @override
+  State<_ComparisonTable> createState() => _ComparisonTableState();
+}
+
+class _ComparisonTableState extends State<_ComparisonTable> {
+  static const double _labelW = 118; // cột nhãn lúc đầy đủ
+  static const double _labelIconW = 30; // cột nhãn khi đã cuộn (còn mỗi icon)
   static const double _colW = 86;
+  // Chiều cao 1 hàng chỉ số, DÙNG CHUNG cho cột nhãn ghim và hàng số trong
+  // vùng cuộn — lệch một chút là hai bên so le nhau.
+  // 36 = chữ 13pt (~19) + khoảng 3 + thanh tỉ lệ 3 + đệm trên dưới 10, chừa 1.
+  static const double _rowH = 36;
+
+  MatchRecord get record => widget.record;
+  Map<String, Member> get roster => widget.roster;
+
+  final _hCtrl = ScrollController();
+  bool _compact = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _hCtrl.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _hCtrl.removeListener(_onScroll);
+    _hCtrl.dispose();
+    super.dispose();
+  }
+
+  // Rời khỏi mép trái là thu cột nhãn còn mỗi icon. Cột nhãn được GHIM ngoài
+  // vùng cuộn nên không trôi mất khi kéo ngang; thu nhỏ để trả chỗ lại cho các
+  // cột số. Về đúng mép trái thì bung lại như cũ.
+  void _onScroll() {
+    final c = _hCtrl.hasClients && _hCtrl.offset > 4;
+    if (c != _compact) setState(() => _compact = c);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -318,18 +356,68 @@ class _ComparisonTable extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          // IntrinsicHeight để cột nhãn (stretch) biết chiều cao của bảng.
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _headerRow(players),
-                const SizedBox(height: 6),
-                for (var i = 0; i < _metrics.length; i++)
-                  _metricRow(_metrics[i], players, striped: i.isEven),
+                _pinnedLabels(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: _hCtrl,
+                    scrollDirection: Axis.horizontal,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _headerRow(players),
+                        const SizedBox(height: 6),
+                        for (var i = 0; i < _metrics.length; i++)
+                          _metricRow(_metrics[i], players, striped: i.isEven),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  /// Cột nhãn GHIM ngoài vùng cuộn.
+  ///
+  /// Dồn xuống ĐÁY: phần trống phía trên tự khớp chiều cao header, khỏi phải
+  /// đo header rồi chừa chỗ bằng con số cứng — header cao thấp tuỳ tên người
+  /// chơi dài ngắn và có ai ngồi chung slot hay không.
+  Widget _pinnedLabels() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      width: _compact ? _labelIconW : _labelW,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          for (var i = 0; i < _metrics.length; i++)
+            Container(
+              height: _rowH,
+              alignment: Alignment.centerLeft,
+              decoration: BoxDecoration(
+                color: i.isEven ? Colors.white.withValues(alpha: 0.025) : null,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              // Cuộn rồi thì bỏ hẳn phần chữ, chỉ chừa icon. (Cách cắt dần
+              // bằng ClipRect+OverflowBox cho chữ lòi ra đè lên cột số.)
+              child: Text(
+                _compact
+                    ? _metrics[i].icon
+                    : '${_metrics[i].icon} ${_metrics[i].label}',
+                maxLines: 1,
+                overflow: TextOverflow.clip,
+                softWrap: false,
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+            ),
         ],
       ),
     );
@@ -398,7 +486,6 @@ class _ComparisonTable extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(width: _labelW),
             for (final p in players)
               Container(
                 width: _colW,
@@ -487,15 +574,20 @@ class _ComparisonTable extends StatelessWidget {
     final values = [for (final p in players) m.get(p)];
     // Với mốc thời gian, 0 = chưa lên tới đời đó. Nếu đem so bình thường thì
     // người không lên đời lại thành người "lên nhanh nhất".
-    final ranked = m.time ? [for (final v in values) if (v > 0) v] : values;
+    final ranked = m.time
+        ? [
+            for (final v in values)
+              if (v > 0) v
+          ]
+        : values;
     final maxV = ranked.fold(0, (a, b) => a > b ? a : b);
     final minV = ranked.isEmpty ? 0 : ranked.reduce((a, b) => a < b ? a : b);
     final best = m.lowerBetter ? minV : maxV;
     // Bằng nhau hết thì không tô sáng ai. Riêng mốc thời gian: chỉ coi là bằng
     // nhau khi MỌI người đều đạt mốc — lên được đời mà người khác chưa lên tới
     // vẫn đáng tô sáng. Không ai đạt -> cả hàng là "—", không tô ô nào.
-    final allEqual = ranked.isEmpty ||
-        (maxV == minV && ranked.length == values.length);
+    final allEqual =
+        ranked.isEmpty || (maxV == minV && ranked.length == values.length);
 
     // Thanh tỉ lệ 0..100. Mốc thời gian đảo chiều: lên đời sớm nhất mới là
     // thanh dài nhất, nếu không thanh dài sẽ tôn người lên đời chậm nhất.
@@ -510,12 +602,18 @@ class _ComparisonTable extends StatelessWidget {
       final color = isBest ? AppColors.win : Colors.white24;
       return Column(
         children: [
-          Text(
-            m.time ? (v > 0 ? matchClock(v) : '—') : '$v${m.suffix}',
-            style: TextStyle(
-              color: isBest ? AppColors.win : Colors.white70,
-              fontSize: 13,
-              fontWeight: isBest ? FontWeight.w900 : FontWeight.w500,
+          // Hàng có chiều cao cố định, nên số dài phải THU NHỎ chứ không được
+          // xuống dòng (xuống dòng là tràn ra ngoài hàng).
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              m.time ? (v > 0 ? matchClock(v) : '—') : '$v${m.suffix}',
+              maxLines: 1,
+              style: TextStyle(
+                color: isBest ? AppColors.win : Colors.white70,
+                fontSize: 13,
+                fontWeight: isBest ? FontWeight.w900 : FontWeight.w500,
+              ),
             ),
           ),
           const SizedBox(height: 3),
@@ -539,29 +637,29 @@ class _ComparisonTable extends StatelessWidget {
       );
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: striped ? Colors.white.withValues(alpha: 0.025) : null,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          SizedBox(
-            width: _labelW,
-            child: Text('${m.icon} ${m.label}',
-                style: const TextStyle(color: Colors.white54, fontSize: 12)),
-          ),
-          for (var i = 0; i < players.length; i++)
-            Container(
-              width: _colW,
-              color: _isViewer(players[i])
-                  ? AppColors.gold.withValues(alpha: 0.06)
-                  : null,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: cell(values[i]),
-            ),
-        ],
+    // Nhãn không còn ở đây: nó nằm trong cột ghim ngoài vùng cuộn. Chiều cao
+    // phải đúng _rowH để hai bên thẳng hàng nhau.
+    return SizedBox(
+      height: _rowH,
+      child: Container(
+        decoration: BoxDecoration(
+          color: striped ? Colors.white.withValues(alpha: 0.025) : null,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Row(
+          children: [
+            for (var i = 0; i < players.length; i++)
+              Container(
+                width: _colW,
+                color: _isViewer(players[i])
+                    ? AppColors.gold.withValues(alpha: 0.06)
+                    : null,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: cell(values[i]),
+              ),
+          ],
+        ),
       ),
     );
   }

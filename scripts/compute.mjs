@@ -104,7 +104,19 @@ async function fetchPage(uuid, size, index) {
     throw new Error(`GPlay API lỗi (user ${uuid}, trang ${index}): ${e.message}`);
   }
   const json = await res.json();
-  return json?.Data?.list ?? [];
+  // 200 nhưng thân phản hồi không có `Data` (API chập/chặn tần suất) thì phải
+  // DỪNG HẲN. Trước đây chỗ này rơi về [] và vòng lặp coi như "hết trận" —
+  // lần chạy 14/08 15:14 vì thế ra bảng 197 trận / 108 nội bộ thay vì
+  // 1603 / 530, tức ELO của cả team sai mà không có dấu hiệu gì.
+  // Phản hồi HỢP LỆ luôn có Data là object, kể cả khi rỗng thật:
+  // user không có trận -> {"Data":{"list":[],"total_row":0}}.
+  const data = json?.Data;
+  if (typeof data !== "object" || data === null) {
+    throw new Error(
+      `GPlay trả dữ liệu không đọc được (user ${uuid}, trang ${index}) — dừng để khỏi tính ELO trên dữ liệu thiếu.`
+    );
+  }
+  return data.list ?? [];
 }
 
 // Lấy tên + bộ trang trí hiện tại từ hồ sơ user (public, không cần token).

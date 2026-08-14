@@ -117,7 +117,8 @@ void main() {
         ghost: false,
       );
       await tester.pumpWidget(MaterialApp(home: MatchDetailPage(record: rec)));
-      for (final label in ['⏱️ Lên đời 2', '⏱️ Lên đời 3', '⏱️ Lên đời 4']) {
+      // Icon và chữ là hai Text riêng (chữ mờ dần độc lập khi cuộn ngang).
+      for (final label in ['Lên đời 2', 'Lên đời 3', 'Lên đời 4']) {
         expect(find.text(label), findsOneWidget);
       }
       // ms trên đồng hồ trong trận -> m:ss.

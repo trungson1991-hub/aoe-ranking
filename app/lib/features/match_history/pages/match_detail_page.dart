@@ -289,6 +289,11 @@ class _ComparisonTable extends StatefulWidget {
 class _ComparisonTableState extends State<_ComparisonTable> {
   static const double _labelW = 118; // cột nhãn lúc đầy đủ
   static const double _labelIconW = 30; // cột nhãn khi đã cuộn (còn mỗi icon)
+  // Quãng cuộn để cột nhãn thu hết cỡ. Đặt rộng hơn 88px bề ngang mất đi:
+  // cột co bao nhiêu thì mép trái vùng cuộn dịch bấy nhiêu, cộng với chính
+  // quãng cuộn nên nội dung chạy nhanh hơn ngón tay — quãng càng dài thì phần
+  // chạy dư càng khó nhận ra.
+  static const double _collapseOver = 140;
   static const double _colW = 86;
   // Chiều cao 1 hàng chỉ số, DÙNG CHUNG cho cột nhãn ghim và hàng số trong
   // vùng cuộn — lệch một chút là hai bên so le nhau.
@@ -299,27 +304,22 @@ class _ComparisonTableState extends State<_ComparisonTable> {
   Map<String, Member> get roster => widget.roster;
 
   final _hCtrl = ScrollController();
-  bool _compact = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _hCtrl.addListener(_onScroll);
-  }
 
   @override
   void dispose() {
-    _hCtrl.removeListener(_onScroll);
     _hCtrl.dispose();
     super.dispose();
   }
 
-  // Rời khỏi mép trái là thu cột nhãn còn mỗi icon. Cột nhãn được GHIM ngoài
-  // vùng cuộn nên không trôi mất khi kéo ngang; thu nhỏ để trả chỗ lại cho các
-  // cột số. Về đúng mép trái thì bung lại như cũ.
-  void _onScroll() {
-    final c = _hCtrl.hasClients && _hCtrl.offset > 4;
-    if (c != _compact) setState(() => _compact = c);
+  /// Mức thu gọn của cột nhãn, 0 = đầy đủ, 1 = chỉ còn icon.
+  ///
+  /// Bám THẲNG vào vị trí cuộn chứ không bật/tắt theo ngưỡng: bật/tắt làm kéo
+  /// nhẹ 5px cũng khiến cột co ngay 88px và nội dung giật một cái, lại phải
+  /// cuộn hẳn về mép trái mới lấy lại được nhãn. Bám theo vị trí thì kéo tới
+  /// đâu nhãn lùi tới đó, buông ở đâu giữ nguyên ở đó.
+  double get _collapse {
+    if (!_hCtrl.hasClients || !_hCtrl.position.hasPixels) return 0;
+    return (_hCtrl.offset / _collapseOver).clamp(0.0, 1.0);
   }
 
   @override
@@ -391,35 +391,57 @@ class _ComparisonTableState extends State<_ComparisonTable> {
   /// đo header rồi chừa chỗ bằng con số cứng — header cao thấp tuỳ tên người
   /// chơi dài ngắn và có ai ngồi chung slot hay không.
   Widget _pinnedLabels() {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
-      width: _compact ? _labelIconW : _labelW,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          for (var i = 0; i < _metrics.length; i++)
-            Container(
-              height: _rowH,
-              alignment: Alignment.centerLeft,
-              decoration: BoxDecoration(
-                color: i.isEven ? Colors.white.withValues(alpha: 0.025) : null,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              // Cuộn rồi thì bỏ hẳn phần chữ, chỉ chừa icon. (Cách cắt dần
-              // bằng ClipRect+OverflowBox cho chữ lòi ra đè lên cột số.)
-              child: Text(
-                _compact
-                    ? _metrics[i].icon
-                    : '${_metrics[i].icon} ${_metrics[i].label}',
-                maxLines: 1,
-                overflow: TextOverflow.clip,
-                softWrap: false,
-                style: const TextStyle(color: Colors.white54, fontSize: 12),
-              ),
-            ),
-        ],
-      ),
+    // AnimatedBuilder: mỗi khung hình cuộn chỉ vẽ lại CỘT NHÃN, không đụng tới
+    // bảng số bên cạnh.
+    return AnimatedBuilder(
+      animation: _hCtrl,
+      builder: (context, _) {
+        final t = _collapse;
+        // Chữ mờ đi nhanh hơn cột co lại, để không bị bóp méo lúc gần hết chỗ.
+        final textOpacity = (1 - t * 1.6).clamp(0.0, 1.0);
+        return SizedBox(
+          width: _labelW + (_labelIconW - _labelW) * t,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              for (var i = 0; i < _metrics.length; i++)
+                Container(
+                  height: _rowH,
+                  alignment: Alignment.centerLeft,
+                  decoration: BoxDecoration(
+                    color:
+                        i.isEven ? Colors.white.withValues(alpha: 0.025) : null,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: ClipRect(
+                    child: Row(
+                      children: [
+                        Text(_metrics[i].icon,
+                            style: const TextStyle(fontSize: 12)),
+                        const SizedBox(width: 4),
+                        // Expanded: chữ nhận đúng phần còn thừa, hết chỗ thì
+                        // rộng 0 chứ không đẩy tràn ra ngoài.
+                        Expanded(
+                          child: Opacity(
+                            opacity: textOpacity,
+                            child: Text(
+                              _metrics[i].label,
+                              maxLines: 1,
+                              softWrap: false,
+                              overflow: TextOverflow.clip,
+                              style: const TextStyle(
+                                  color: Colors.white54, fontSize: 12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 

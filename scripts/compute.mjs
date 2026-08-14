@@ -253,12 +253,14 @@ async function fetchNewMatches(uuid, fromEpoch, known) {
   return out;
 }
 
-async function syncUserMatches(uuid, fromEpoch) {
+async function syncUserMatches(uuid, fromEpoch, { backfill = false } = {}) {
   // MỘT lần đọc là đủ cho cả hai việc: biết trận nào đã có, và lấy phần kho để
   // tính ELO. Vòng tải mới vốn đã dừng ở mốc cửa sổ nên không bao giờ chạm tới
   // trận cũ hơn — danh sách khoá chỉ cần phần trong cửa sổ.
   const stored = await storedMatches(uuid, fromEpoch);
-  const known = new Set(stored.map((m) => m.game_id));
+  // backfill: coi như chưa có gì để vòng tải chạy hết cửa sổ thay vì dừng ở
+  // trận đã lưu đầu tiên. Ghi đè lại phần trùng là vô hại.
+  const known = backfill ? new Set() : new Set(stored.map((m) => m.game_id));
   const fresh = await fetchNewMatches(uuid, fromEpoch, known);
   await saveMatches(uuid, fresh);
   // Kho + phần vừa tải = toàn bộ cửa sổ; không cần đọc lại lần nữa.
@@ -692,9 +694,29 @@ async function main() {
     monthsAgo(now, TOURNEY_WINDOW_MONTHS).getTime() / 1000
   );
 
+  // Cửa sổ NỚI RỘNG ra (tăng WINDOW_MONTHS) thì kho không hề có phần trận cũ
+  // hơn mốc cũ, mà vòng tải tăng dần lại dừng ngay ở trận đã lưu đầu tiên nên
+  // không bao giờ lấy được -> ELO tính trên dữ liệu thiếu mà không báo gì.
+  // start_epoch của lần chạy trước nằm sẵn trong leaderboard.json (CI có
+  // checkout repo), đủ để nhận ra và tải bù.
+  let prevStart = Infinity; // chưa có file = lần chạy đầu -> tải đầy đủ
+  try {
+    prevStart = JSON.parse(fs.readFileSync(OUT_FILE, "utf8")).start_epoch ?? Infinity;
+  } catch {
+    /* chưa có file, giữ Infinity */
+  }
+  const backfill = START_EPOCH < prevStart;
+  if (backfill) {
+    console.log(
+      `Cửa sổ rộng ra (mốc ${prevStart} -> ${START_EPOCH}): tải bù toàn bộ cửa sổ.`
+    );
+  }
+
   // Đồng bộ kho trận (chỉ tải phần mới) + hồ sơ + điểm thưởng giải đấu.
   const [synced, profileList, tourney] = await Promise.all([
-    Promise.all(TEAM.map((uuid) => syncUserMatches(uuid, START_EPOCH))),
+    Promise.all(
+      TEAM.map((uuid) => syncUserMatches(uuid, START_EPOCH, { backfill }))
+    ),
     Promise.all(TEAM.map((uuid) => fetchProfile(uuid))),
     fetchTournamentBonuses(TOURNEY_START),
   ]);

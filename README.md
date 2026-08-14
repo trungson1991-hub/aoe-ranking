@@ -9,6 +9,11 @@ Web tính điểm ELO riêng cho các thành viên team dựa trên API lịch s
   âm**. Chỉ tính các trận trong **6 tháng gần nhất** (cửa sổ trượt, cấu hình `WINDOW_MONTHS`
   trong `scripts/team.mjs`). Mỗi lần cập nhật tính lại toàn bộ cửa sổ này — trận cũ hơn
   6 tháng tự rơi ra.
+- **Kho trận trên Firebase**: mỗi lần chạy, `compute.mjs` chỉ tải từ GPlay những trận
+  **chưa có** trong kho rồi ghi thêm vào `history/<uuid>/<game_id>` (lưu **tất cả** trận, chưa lọc).
+  ELO tính trên kho, và **app đọc lịch sử thẳng từ kho này** chứ không gọi GPlay nữa — đổi lại
+  lịch sử chỉ mới bằng lần chạy CI gần nhất (6 lần/ngày).
+  Ghi cần secret `FIREBASE_SERVICE_ACCOUNT`; app chỉ có quyền đọc.
 - Chỉ tính trận **nội bộ**: TẤT CẢ người chơi của cả 2 đội đều là thành viên team.
 - Loại **trận "ma"**: (1) chỉ có 1 người chơi hoặc một đội rỗng (Xv0 — không có đối thủ), hoặc
   (2) tổng `kills + losses` (giết + mất quân) của tất cả người chơi `< 5` (không có giao tranh thật).
@@ -42,7 +47,8 @@ Web tính điểm ELO riêng cho các thành viên team dựa trên API lịch s
 - Xếp hạng theo ELO giảm dần (hạng 1, 2, 3...).
 - Ngoài ELO **Tổng**, còn tính ELO **riêng cho từng thể loại 1v1 / 2v2 / 3v3 / 4v4** (chỉ trận
   cân người; trận lệch như 3v4 chỉ tính vào Tổng). Web có nút chọn chế độ để xem từng bảng.
-- Tự chạy **7:00 / 14:00 / 21:00 hàng ngày** (giờ VN) bằng GitHub Actions cron, và chạy lại
+- Tự chạy **7:00 / 13:00 / 14:00 / 19:00 / 20:00 / 21:00 hàng ngày** (giờ VN) bằng GitHub
+  Actions cron, và chạy lại
   mỗi khi push thay đổi vào `app/**` hoặc `scripts/**`.
 
 ## Kiến trúc
@@ -51,8 +57,8 @@ Web tính điểm ELO riêng cho các thành viên team dựa trên API lịch s
 AOE_Ranking/
 ├── scripts/
 │   ├── team.mjs          # ⭐ Danh sách team, cửa sổ tháng, trọng số quen tay & thưởng giải
-│   └── compute.mjs       # Fetch API + tính ELO cửa sổ 6 tháng (Node, không cần package)
-├── app/                  # Flutter web (đọc data/leaderboard.json qua HTTP)
+│   └── compute.mjs       # Đồng bộ kho trận lên Firebase + tính ELO 6 tháng (Node thuần)
+├── app/                  # Flutter (bảng xếp hạng: leaderboard.json; lịch sử: Firebase)
 │   ├── web/data/leaderboard.json   # Dữ liệu hiển thị (do script ghi)
 │   ├── lib/
 │   │   ├── main.dart / app.dart    # Khởi động + MaterialApp/theme
@@ -63,12 +69,16 @@ AOE_Ranking/
 │   │       └── tournament/         #   Giải đấu (models / logic / services / pages / widgets)
 │   └── test/                       # Unit test (logic giải đấu, luật lọc trận)
 │                                   # + widget test (thẻ ELO, dialog tỉ số, lịch sử trận)
-├── .github/workflows/update.yml    # Cron 3 lần/ngày + build + deploy Pages
+├── .github/workflows/update.yml    # Cron 6 lần/ngày + build + deploy Pages
 └── README.md
 ```
 
-Luồng: `GitHub Actions (cron)` → chạy `compute.mjs` → ghi `leaderboard.json`
-(commit lại repo) → build Flutter web → deploy **GitHub Pages**. Web đọc `data/leaderboard.json`.
+Luồng: `GitHub Actions (cron)` → `compute.mjs` tải **phần trận mới** từ GPlay → ghi vào
+**kho trận Firebase** (`history/<uuid>`) → tính ELO trên kho → ghi `leaderboard.json`
+(commit lại repo) → build Flutter web → deploy **GitHub Pages**.
+
+App đọc **bảng xếp hạng** từ `data/leaderboard.json` và **lịch sử trận** từ kho Firebase.
+App không gọi API GPlay nữa — chỉ `compute.mjs` gọi.
 
 ## Chạy thử ở máy (không cần gì ngoài Node 18+)
 
@@ -111,7 +121,8 @@ Firebase nên không bị ảnh hưởng.
 
 ## Vận hành
 
-- ELO **tự cập nhật** 7:00 / 14:00 / 21:00 hàng ngày. Muốn cập nhật ngay: **Actions → Run workflow**.
+- ELO **tự cập nhật** 7:00 / 13:00 / 14:00 / 19:00 / 20:00 / 21:00 hàng ngày.
+  Muốn cập nhật ngay: **Actions → Run workflow**.
 - Nút 🔄 trên web để tải lại dữ liệu mới nhất.
 - **Đổi thành viên / độ dài cửa sổ / trọng số**: sửa `scripts/team.mjs` (`TEAM`,
   `WINDOW_MONTHS`, `ACTIVITY_WEIGHT`, `TOURNEY_BONUS`) rồi commit & push. Mỗi lần chạy đều
@@ -121,7 +132,7 @@ Firebase nên không bị ảnh hưởng.
 
 ## Ghi chú
 
-- Nguồn dữ liệu (đều public, CORS mở):
+- Nguồn dữ liệu (đều public, CORS mở) — **chỉ `compute.mjs` gọi**, app đọc lại từ Firebase:
   - `GET .../statistics/history` — lịch sử trận (`user_uuid`, `game_code=aoe`, `size`, `index`)
   - `GET .../statistics/profile` — tên, avatar và **đồ trang trí** của thành viên
     (`vip_frame_url` khung quanh avatar, `background_url` ảnh nền thẻ, `effect_url` vòng sáng).

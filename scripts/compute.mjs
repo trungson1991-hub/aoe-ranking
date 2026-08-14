@@ -7,6 +7,7 @@
 //
 // Không cần cài package nào (dùng fetch có sẵn của Node 18+).
 
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -127,22 +128,131 @@ async function fetchProfile(uuid) {
   }
 }
 
-async function fetchUserMatches(uuid, fromEpoch) {
+// ---- Kho trận trên Firebase RTDB ----
+// Mỗi lần chạy chỉ tải về từ GPlay những trận CHƯA có trong kho, rồi ghi thêm.
+// App đọc thẳng kho này thay vì gọi GPlay.
+//
+// Lưu theo TỪNG NGƯỜI (`history/<uuid>/<game_id>`) chứ không một bản chung:
+// RTDB không truy vấn được kiểu "trận nào có chứa người X", nên nếu lưu chung
+// thì app phải tải chỉ mục rồi bắn hàng trăm request lẻ. Trả giá là mỗi trận
+// bị lặp trung bình 2.9 lần (số thành viên team mỗi trận) — vài chục MB, thừa
+// sức nằm trong hạn miễn phí.
+
+// Đổi JWT ký bằng service account -> access token. Làm tay để khỏi phải thêm
+// dependency (repo này chạy Node thuần, không có package.json).
+const b64url = (b) =>
+  Buffer.from(b).toString("base64")
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+let _tok = null;
+async function dbAccessToken() {
+  if (_tok && _tok.exp > Date.now() + 60_000) return _tok.value;
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (!raw) {
+    throw new Error(
+      "Thiếu biến môi trường FIREBASE_SERVICE_ACCOUNT (nội dung file service account JSON)."
+    );
+  }
+  const sa = JSON.parse(raw);
+  const now = Math.floor(Date.now() / 1000);
+  const head = b64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const claim = b64url(
+    JSON.stringify({
+      iss: sa.client_email,
+      scope:
+        "https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/userinfo.email",
+      aud: "https://oauth2.googleapis.com/token",
+      iat: now,
+      exp: now + 3600,
+    })
+  );
+  const sig = b64url(
+    crypto.createSign("RSA-SHA256").update(`${head}.${claim}`).sign(sa.private_key)
+  );
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: `${head}.${claim}.${sig}`,
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`Lấy access token Firebase lỗi ${res.status}: ${await res.text()}`);
+  }
+  const j = await res.json();
+  _tok = { value: j.access_token, exp: Date.now() + (j.expires_in ?? 3600) * 1000 };
+  return _tok.value;
+}
+
+async function dbRequest(pathname, { method = "GET", body, query = "" } = {}) {
+  const token = await dbAccessToken();
+  // Token đi ở header, KHÔNG nhét vào query string: URL hay lọt vào log CI.
+  const res = await fetch(`${FIREBASE_DB_URL}/${pathname}.json?${query}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    throw new Error(`Firebase ${method} ${pathname} lỗi ${res.status}: ${await res.text()}`);
+  }
+  return res.json();
+}
+
+// Chỉ tải phần TRONG CỬA SỔ. Kho giữ trận vĩnh viễn nên tải cả node sẽ phình
+// mãi theo năm tháng, trong khi ELO chỉ cần 6 tháng gần nhất.
+// Cần `.indexOn: ["created_time"]` trong rules; thiếu index thì RTDB vẫn trả
+// đúng, chỉ chậm hơn và ghi cảnh báo.
+async function storedMatches(uuid, fromEpoch) {
+  const j = await dbRequest(`history/${uuid}`, {
+    query: `orderBy=${encodeURIComponent('"created_time"')}&startAt=${fromEpoch}`,
+  });
+  return Object.values(j ?? {});
+}
+
+async function saveMatches(uuid, matches) {
+  if (matches.length === 0) return;
+  const patch = {};
+  for (const m of matches) patch[m.game_id] = m;
+  await dbRequest(`history/${uuid}`, { method: "PATCH", body: patch });
+}
+
+// Tải từ GPlay CHỈ những trận chưa có trong kho. Danh sách trả về mới nhất
+// trước, nên gặp trận đã lưu là dừng — lần chạy sau chỉ tốn 1 trang.
+async function fetchNewMatches(uuid, fromEpoch, known) {
   const size = 100;
   const MAX_PAGES = 100;
   const out = [];
   for (let index = 1; index <= MAX_PAGES; index++) {
     const list = await fetchPage(uuid, size, index);
     if (list.length === 0) break;
-    let reachedStart = false;
+    let stop = false;
     for (const m of list) {
-      if (m.created_time < fromEpoch) reachedStart = true;
-      else out.push(m);
+      // Trận cũ hơn cửa sổ: không cần cho ELO, và mọi trận sau nó còn cũ hơn.
+      if (m.created_time < fromEpoch) { stop = true; break; }
+      if (known.has(m.game_id)) { stop = true; break; }
+      out.push(m);
     }
-    if (reachedStart || list.length < size) break;
+    if (stop || list.length < size) break;
   }
   return out;
 }
+
+async function syncUserMatches(uuid, fromEpoch) {
+  // MỘT lần đọc là đủ cho cả hai việc: biết trận nào đã có, và lấy phần kho để
+  // tính ELO. Vòng tải mới vốn đã dừng ở mốc cửa sổ nên không bao giờ chạm tới
+  // trận cũ hơn — danh sách khoá chỉ cần phần trong cửa sổ.
+  const stored = await storedMatches(uuid, fromEpoch);
+  const known = new Set(stored.map((m) => m.game_id));
+  const fresh = await fetchNewMatches(uuid, fromEpoch, known);
+  await saveMatches(uuid, fresh);
+  // Kho + phần vừa tải = toàn bộ cửa sổ; không cần đọc lại lần nữa.
+  return { all: [...stored, ...fresh], added: fresh.length };
+}
+
 
 // ---- Lọc trận ----
 
@@ -570,14 +680,23 @@ async function main() {
     monthsAgo(now, TOURNEY_WINDOW_MONTHS).getTime() / 1000
   );
 
-  // Fetch song song: lịch sử trận + hồ sơ (tên/avatar) + điểm thưởng giải đấu.
-  const [lists, profileList, tourney] = await Promise.all([
-    Promise.all(TEAM.map((uuid) => fetchUserMatches(uuid, START_EPOCH))),
+  // Đồng bộ kho trận (chỉ tải phần mới) + hồ sơ + điểm thưởng giải đấu.
+  const [synced, profileList, tourney] = await Promise.all([
+    Promise.all(TEAM.map((uuid) => syncUserMatches(uuid, START_EPOCH))),
     Promise.all(TEAM.map((uuid) => fetchProfile(uuid))),
     fetchTournamentBonuses(TOURNEY_START),
   ]);
+  const added = synced.reduce((a, s) => a + s.added, 0);
+
+  // Kho giữ trận VĨNH VIỄN, kể cả trận đã rơi khỏi cửa sổ. Phải cắt theo cửa
+  // sổ ở đây — trước kia bước tải đã cắt sẵn nên chỗ này không cần, bỏ quên là
+  // trận cũ lọt vào ELO.
   const union = new Map();
-  for (const list of lists) for (const m of list) union.set(m.game_id, m);
+  for (const { all } of synced) {
+    for (const m of all) {
+      if (m.created_time >= START_EPOCH) union.set(m.game_id, m);
+    }
+  }
   const profiles = {};
   TEAM.forEach((u, i) => (profiles[u] = profileList[i]));
 
@@ -645,6 +764,9 @@ async function main() {
   fs.mkdirSync(path.dirname(OUT_FILE), { recursive: true });
   fs.writeFileSync(OUT_FILE, JSON.stringify(board, null, 2));
 
+  console.log(
+    `Kho trận: +${added} trận mới tải từ GPlay, ${union.size} trận trong cửa sổ.`
+  );
   console.log(
     `Performance ELO — cửa sổ ${WINDOW_MONTHS} tháng: ${eligible.length} trận, ` +
       `từ ${startDate.toISOString().slice(0, 10)}; ` +

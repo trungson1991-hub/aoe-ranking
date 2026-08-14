@@ -79,7 +79,7 @@ class _MethodSheet extends StatelessWidget {
             bullet('Xếp hạng theo ELO từ cao đến thấp (hạng 1, 2, 3...).'),
             const SizedBox(height: 16),
             const Text(
-              'Cập nhật tự động 7:00 / 14:00 / 21:00 hàng ngày (giờ VN).',
+              'Cập nhật tự động 6 lần/ngày: 7:00, 13:00, 14:00, 19:00, 20:00, 21:00 (giờ VN).',
               style: TextStyle(
                   color: Colors.white38,
                   fontSize: 12,

@@ -2,8 +2,9 @@ name: Cập nhật ELO & deploy web
 
 on:
   schedule:
-    # GitHub cron dùng giờ UTC. 07:00/14:00/21:00 giờ VN (UTC+7) = 00:00/07:00/14:00 UTC.
-    - cron: '0 0,7,14 * * *'
+    # GitHub cron dùng giờ UTC; giờ VN = UTC+7.
+    # 07:00 13:00 14:00 19:00 20:00 21:00 VN = 00:00 06:00 07:00 12:00 13:00 14:00 UTC.
+    - cron: '0 0,6,7,12,13,14 * * *'
   workflow_dispatch: {}
   push:
     branches: [main]
@@ -34,8 +35,14 @@ jobs:
         with:
           node-version: '20'
 
-      # Tính lại ELO trong cửa sổ 6 tháng gần nhất.
-      - name: Tính ELO (cửa sổ 6 tháng)
+      # Đồng bộ kho trận lên Firebase (chỉ tải phần mới) rồi tính lại ELO
+      # trong cửa sổ 6 tháng gần nhất.
+      # FIREBASE_SERVICE_ACCOUNT: nội dung file JSON service account, đặt trong
+      # Settings -> Secrets and variables -> Actions. App CHỈ ĐỌC kho này, chỉ
+      # CI mới có quyền ghi.
+      - name: Đồng bộ kho trận + tính ELO
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: node scripts/compute.mjs
 
       - uses: subosito/flutter-action@v2

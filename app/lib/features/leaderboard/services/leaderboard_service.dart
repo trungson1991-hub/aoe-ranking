@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
@@ -32,58 +33,52 @@ class LeaderboardService {
     return Leaderboard.fromMap(map);
   }
 
-  // Lịch sử trận của 1 user, lấy trực tiếp từ API GPlay (public, CORS mở).
-  // Chỉ giữ trận nội bộ hợp lệ có created_time >= sinceEpoch (cùng luật với compute.mjs).
+  // Lịch sử trận của 1 user, đọc từ KHO TRẬN trên Firebase (`history/<uuid>`)
+  // do scripts/compute.mjs ghi mỗi lần chạy. App không gọi thẳng GPlay nữa.
+  //
+  // Đánh đổi đã biết: lịch sử chỉ mới bằng lần chạy CI gần nhất (6 lần/ngày),
+  // nên trận vừa đánh xong có thể chưa thấy ngay.
+  //
+  // Vẫn lọc y hệt compute.mjs (nội bộ / không phải trận ma / người xem phải là
+  // người chơi thực) để số trận ở đây khớp số trận trên bảng xếp hạng.
   Future<List<MatchRecord>> fetchUserHistory(
     String uuid, {
     required int sinceEpoch,
     required Set<String> teamUuids,
   }) async {
-    const base =
-        'https://game-offline.gplay.vn/game/offline/api/v2.1/statistics/history';
-    const pageSize = 100;
-    // Trần an toàn; vòng lặp thường dừng sớm khi chạm mốc thời gian.
-    // 12 trang từng cắt mất lịch sử của người chơi nhiều mà không báo gì.
-    const maxPages = 30;
+    final DataSnapshot snap;
+    try {
+      // Chỉ lấy phần trong cửa sổ: kho giữ trận vĩnh viễn nên tải cả node sẽ
+      // phình mãi theo năm tháng. Cần `.indexOn: ["created_time"]` trong rules;
+      // thiếu index thì Firebase vẫn trả đúng, chỉ chậm hơn và ghi cảnh báo.
+      snap = await FirebaseDatabase.instance
+          .ref('history/$uuid')
+          .orderByChild('created_time')
+          .startAt(sinceEpoch.toDouble())
+          .get()
+          .timeout(const Duration(seconds: 20));
+    } catch (e) {
+      // Firebase chưa khởi tạo được / mất mạng: báo lỗi để trang hiện nút thử
+      // lại, thay vì im lặng trả rỗng và trông như "chưa chơi trận nào".
+      throw Exception('Không đọc được kho trận từ Firebase: $e');
+    }
+
+    final raw = snap.value;
+    // null = không có trận nào trong cửa sổ. Truy vấn có lọc nên KHÔNG phân
+    // biệt được "kho chưa đồng bộ cho người này" với "đã đồng bộ, không có
+    // trận" — cả hai đều hiện "Không có trận nào".
+    if (raw == null) return const [];
+    if (raw is! Map) {
+      throw Exception('Kho trận sai định dạng tại history/$uuid');
+    }
+
     final out = <MatchRecord>[];
-    for (var index = 1; index <= maxPages; index++) {
-      final uri = Uri.parse(
-          '$base?user_uuid=$uuid&game_code=aoe&size=$pageSize&index=$index');
-      final res = await http.get(uri, headers: {'Accept': 'application/json'});
-      // Lỗi API phải báo cho người dùng. Trước đây `break` im lặng khiến
-      // màn hình hiện "Không có trận nào" — người dùng tưởng mình chưa chơi.
-      if (res.statusCode != 200) {
-        throw Exception(
-            'API GPlay lỗi ${res.statusCode} khi tải lịch sử (trang $index)');
-      }
-      final body =
-          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
-      // 200 nhưng thân phản hồi không có `Data` (API chập, bị chặn tần suất...)
-      // thì phải BÁO LỖI. Trước đây nó rơi về danh sách rỗng, và trang hiện
-      // "Không có trận nào" — người chơi lâu năm tưởng mất sạch lịch sử.
-      final data = body['Data'];
-      if (data is! Map) {
-        throw Exception(
-            'API GPlay trả dữ liệu không đọc được (trang $index). Thử lại sau.');
-      }
-      // Rỗng thật (người mới chưa có trận) thì vẫn là kết quả hợp lệ.
-      final list = (data['list'] as List?) ?? const [];
-      if (list.isEmpty) break;
-      var reachedStart = false;
-      for (final e in list) {
-        final j = Map<String, dynamic>.from(e as Map);
-        final rec = MatchRecord.fromApi(j, uuid, teamUuids);
-        if (rec.createdTime < sinceEpoch) {
-          reachedStart = true;
-          continue;
-        }
-        // Cùng bộ lọc với compute.mjs, kể cả việc bỏ trận mà người xem chỉ
-        // là viewer chung slot — để số trận khớp bảng xếp hạng.
-        if (rec.internal && !rec.ghost && rec.viewerIsRealPlayer) {
-          out.add(rec);
-        }
-      }
-      if (reachedStart || list.length < pageSize) break;
+    for (final e in raw.values) {
+      if (e is! Map) continue;
+      final rec = MatchRecord.fromApi(
+          Map<String, dynamic>.from(e), uuid, teamUuids);
+      if (rec.createdTime < sinceEpoch) continue;
+      if (rec.internal && !rec.ghost && rec.viewerIsRealPlayer) out.add(rec);
     }
     out.sort((a, b) => b.createdTime - a.createdTime); // mới nhất trước
     return out;

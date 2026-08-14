@@ -333,6 +333,7 @@ class _BodyState extends State<_Body> {
             Text('${t.format} · chạm ${t.firstTo} · ${t.teams.length} đội',
                 style: const TextStyle(color: Colors.white54, fontSize: 13)),
             ..._prizeRow(),
+            ..._noteBox(),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -379,6 +380,36 @@ class _BodyState extends State<_Body> {
         'Giải thưởng:  ${parts.join('   ')}',
         style: const TextStyle(
             color: AppColors.gold, fontSize: 13, fontWeight: FontWeight.w700),
+      ),
+    ];
+  }
+
+  /// Ghi chú của ban tổ chức. Giải chưa ghi gì thì không chiếm chỗ.
+  List<Widget> _noteBox() {
+    if (t.note.isEmpty) return const [];
+    return [
+      const SizedBox(height: 10),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white12),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('📌  ', style: TextStyle(fontSize: 13)),
+            Expanded(
+              child: Text(
+                t.note,
+                style: const TextStyle(
+                    color: Colors.white70, fontSize: 13, height: 1.4),
+              ),
+            ),
+          ],
+        ),
       ),
     ];
   }

@@ -44,6 +44,7 @@ class _EditTeam {
 class _TournamentEditPageState extends State<TournamentEditPage> {
   late final List<_EditTeam> _teams;
   final _name = TextEditingController();
+  final _note = TextEditingController();
   // Tiền thưởng theo hạng: nhất / nhì / ba.
   final List<TextEditingController> _prizes =
       List.generate(3, (_) => TextEditingController());
@@ -57,6 +58,7 @@ class _TournamentEditPageState extends State<TournamentEditPage> {
   void initState() {
     super.initState();
     _name.text = t.name;
+    _note.text = t.note;
     for (var i = 0; i < 3; i++) {
       final v = i < t.prizes.length ? t.prizes[i] : 0;
       if (v > 0) _prizes[i].text = '$v';
@@ -71,6 +73,7 @@ class _TournamentEditPageState extends State<TournamentEditPage> {
   @override
   void dispose() {
     _name.dispose();
+    _note.dispose();
     for (final c in _prizes) {
       c.dispose();
     }
@@ -220,6 +223,7 @@ class _TournamentEditPageState extends State<TournamentEditPage> {
       final updated =
           applyTeamEdits(latest, teams: newTeams, groups: newGroups).copyWith(
         name: _name.text.trim(),
+        note: _note.text.trim(),
         prizes: [for (final c in _prizes) parseMoney(c.text)],
       );
       // Mất mạng / Firebase bị chặn -> báo lỗi thay vì quay vòng vĩnh viễn.
@@ -257,6 +261,17 @@ class _TournamentEditPageState extends State<TournamentEditPage> {
                 controller: _name,
                 style: const TextStyle(color: Colors.white),
                 decoration: _dec('Tên giải'),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _note,
+                style: const TextStyle(color: Colors.white),
+                // Ghi chú thường là vài dòng thể lệ/giờ đá nên cho ô cao sẵn
+                // và tự giãn thêm, thay vì cuộn ngang trong một dòng.
+                minLines: 2,
+                maxLines: 5,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: _dec('Ghi chú (thể lệ, giờ đá, lưu ý...)'),
               ),
               const SizedBox(height: 14),
               PrizeFields(controllers: _prizes),

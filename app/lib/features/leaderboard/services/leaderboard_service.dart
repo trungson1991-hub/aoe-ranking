@@ -58,7 +58,16 @@ class LeaderboardService {
       }
       final body =
           jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
-      final list = (body['Data']?['list'] as List?) ?? const [];
+      // 200 nhưng thân phản hồi không có `Data` (API chập, bị chặn tần suất...)
+      // thì phải BÁO LỖI. Trước đây nó rơi về danh sách rỗng, và trang hiện
+      // "Không có trận nào" — người chơi lâu năm tưởng mất sạch lịch sử.
+      final data = body['Data'];
+      if (data is! Map) {
+        throw Exception(
+            'API GPlay trả dữ liệu không đọc được (trang $index). Thử lại sau.');
+      }
+      // Rỗng thật (người mới chưa có trận) thì vẫn là kết quả hợp lệ.
+      final list = (data['list'] as List?) ?? const [];
       if (list.isEmpty) break;
       var reachedStart = false;
       for (final e in list) {

@@ -111,6 +111,7 @@ class Tournament {
   final String id;
   final String name;
   final String pin; // PIN quản trị riêng của giải (người tạo đặt)
+  final String note; // ghi chú tự do của ban tổ chức (thể lệ, giờ đá, phần thưởng...)
   final String format; // '1v1' | '2v2' | '3v3' | '4v4'
   final int firstTo; // chạm N
   final String structure;
@@ -129,6 +130,7 @@ class Tournament {
     required this.id,
     required this.name,
     required this.pin,
+    this.note = '',
     required this.format,
     required this.firstTo,
     required this.structure,
@@ -155,6 +157,7 @@ class Tournament {
 
   Tournament copyWith({
     String? name,
+    String? note,
     String? status,
     int? finishedAt,
     List<int>? prizes,
@@ -167,6 +170,7 @@ class Tournament {
         id: id,
         name: name ?? this.name,
         pin: pin,
+        note: note ?? this.note,
         format: format,
         firstTo: firstTo,
         structure: structure,
@@ -184,6 +188,7 @@ class Tournament {
   Map<String, dynamic> toMap() => {
         'name': name,
         'pin': pin,
+        'note': note,
         'format': format,
         'first_to': firstTo,
         'structure': structure,
@@ -207,6 +212,7 @@ class Tournament {
       id: id,
       name: (m['name'] ?? '') as String,
       pin: (m['pin'] ?? '') as String,
+      note: (m['note'] ?? '') as String,
       format: (m['format'] ?? '1v1') as String,
       firstTo: (m['first_to'] is num) ? (m['first_to'] as num).toInt() : 1,
       structure: (m['structure'] ?? kStructureRoundRobin) as String,

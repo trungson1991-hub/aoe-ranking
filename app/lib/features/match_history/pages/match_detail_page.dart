@@ -30,12 +30,6 @@ class _Metric {
   final bool time;
 }
 
-/// Mốc đồng hồ trong trận (ms) -> "m:ss".
-String _clock(int ms) {
-  final s = ms ~/ 1000;
-  return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
-}
-
 const List<_Metric> _metrics = [
   _Metric('⚔️', 'Giết quân', _kills),
   _Metric('💀', 'Mất quân', _losses, lowerBetter: true),
@@ -380,80 +374,110 @@ class _ComparisonTable extends StatelessWidget {
     );
   }
 
+  /// Header của bảng: mỗi cột là một SLOT trong game (người ngồi chung slot
+  /// hiện thêm tên/avatar ở cùng cột chứ không tách ra).
+  ///
+  /// Dựng theo TỪNG HÀNG NGANG chứ không phải Row-của-Column: trước đây cột
+  /// nào tên dài hơn hoặc có thêm người chung slot thì avatar, chấm màu, tên
+  /// và gạch đội của cột đó lệch hẳn so với cột bên cạnh. Cắt theo hàng thì
+  /// chiều cao mỗi hàng lấy theo ô cao nhất, nên các cột luôn thẳng nhau.
   Widget _headerRow(List<PlayerStat> players) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        const SizedBox(width: _labelW),
-        for (final p in players) _headerCell(p),
-      ],
-    );
-  }
+    final sharersOf = <String, List<PlayerStat>>{
+      for (final p in players)
+        p.uuid: record.slotSharers[p.uuid] ?? const <PlayerStat>[],
+    };
 
-  /// Một cột = một SLOT trong game. Người ngồi chung slot hiện thêm tên/avatar
-  /// ở đây chứ không tách cột riêng: họ dùng chung một bộ số liệu, tách ra sẽ
-  /// cộng đôi tổng đội và biến mọi hàng thành "hoà nhau".
-  Widget _headerCell(PlayerStat p) {
-    final sharers = record.slotSharers[p.uuid] ?? const <PlayerStat>[];
-    return Container(
-      width: _colW,
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-      decoration: BoxDecoration(
-        color: _isViewer(p) ? AppColors.gold.withValues(alpha: 0.10) : null,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-      ),
-      child: Column(
-        children: [
-          // Avatar + khung VIP (nếu là thành viên team).
-          _avatarOf(p, sharers),
-          const SizedBox(height: 4),
-          Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(
-              color: slotColor(p.color),
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            p.label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: _isViewer(p) ? AppColors.gold : Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          for (final s in sharers)
-            Text(
-              '+ ${s.label}',
+    Widget band(
+      Widget Function(PlayerStat p, List<PlayerStat> sharers) build, {
+      bool first = false,
+      bool last = false,
+    }) {
+      // IntrinsicHeight + stretch: ô thấp vẫn kéo dài hết chiều cao hàng, nếu
+      // không thì nền vàng của cột người đang xem bị đứt quãng giữa các hàng.
+      return IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(width: _labelW),
+            for (final p in players)
+              Container(
+                width: _colW,
+                padding: EdgeInsets.fromLTRB(4, first ? 6 : 4, 4, last ? 6 : 0),
+                decoration: BoxDecoration(
+                  color: _isViewer(p)
+                      ? AppColors.gold.withValues(alpha: 0.10)
+                      : null,
+                  borderRadius: first
+                      ? const BorderRadius.vertical(top: Radius.circular(8))
+                      : null,
+                ),
+                child: build(p, sharersOf[p.uuid]!),
+              ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        // Avatar + khung VIP (nếu là thành viên team).
+        band((p, s) => _avatarOf(p, s), first: true),
+        band((p, s) => Center(
+              child: Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: slotColor(p.color),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            )),
+        band((p, s) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  p.label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _isViewer(p) ? AppColors.gold : Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                for (final x in s)
+                  Text(
+                    '+ ${x.label}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: _isViewer(x) ? AppColors.gold : Colors.white70,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+              ],
+            )),
+        band((p, s) => Text(
+              s.isEmpty
+                  ? civName(p.empiresType)
+                  : '${civName(p.empiresType)} · chung slot',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: _isViewer(s) ? AppColors.gold : Colors.white70,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
+              style: const TextStyle(color: Colors.white38, fontSize: 10),
+            )),
+        // Gạch màu đội (Đỏ/Xanh).
+        band(
+          (p, s) => Center(
+            child: Container(
+              height: 3,
+              width: 40,
+              decoration: BoxDecoration(
+                color: _inRed(p) ? _redTeam : _blueTeam,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-          Text(
-            sharers.isEmpty
-                ? civName(p.empiresType)
-                : '${civName(p.empiresType)} · chung slot',
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white38, fontSize: 10),
           ),
-          const SizedBox(height: 4),
-          // Gạch màu đội (Đỏ/Xanh) dưới tên.
-          Container(
-            height: 3,
-            width: 40,
-            decoration: BoxDecoration(
-              color: _inRed(p) ? _redTeam : _blueTeam,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        ],
-      ),
+          last: true,
+        ),
+      ],
     );
   }
 
@@ -487,7 +511,7 @@ class _ComparisonTable extends StatelessWidget {
       return Column(
         children: [
           Text(
-            m.time ? (v > 0 ? _clock(v) : '—') : '$v${m.suffix}',
+            m.time ? (v > 0 ? matchClock(v) : '—') : '$v${m.suffix}',
             style: TextStyle(
               color: isBest ? AppColors.win : Colors.white70,
               fontSize: 13,

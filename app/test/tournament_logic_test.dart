@@ -43,6 +43,73 @@ Tournament tourn({
     );
 
 void main() {
+  group('Tournament — vòng lưu/đọc Firebase', () {
+    // Sai một tên khoá trong toMap/fromDoc là mất dữ liệu ÂM THẦM: giải vẫn
+    // lưu được, chỉ là mở lại thì trường đó trống. Test này chốt vòng tròn đó.
+    test('toMap -> fromDoc giữ nguyên ghi chú và các trường chính', () {
+      final t = Tournament(
+        id: 'x',
+        name: 'Giải test',
+        pin: '9999',
+        note: 'Đá 20h thứ 7.\nChạm 3, thua bù ván.',
+        format: '2v2',
+        firstTo: 3,
+        structure: kStructureRoundRobin,
+        advancePerGroup: 2,
+        createdAt: 123,
+        prizes: const [500000, 300000],
+        teams: [team('a'), team('b')],
+        groups: const [],
+        groupFixtures: const [],
+        koFixtures: const [],
+      );
+      final back = Tournament.fromDoc(t.id, t.toMap());
+      expect(back.note, t.note);
+      expect(back.name, t.name);
+      expect(back.pin, t.pin);
+      expect(back.prizes, t.prizes);
+      expect(back.firstTo, t.firstTo);
+    });
+
+    test('giải cũ chưa có ghi chú -> đọc lên là chuỗi rỗng, không lỗi', () {
+      final old = Tournament(
+        id: 'x',
+        name: 'Giải cũ',
+        pin: '1',
+        format: '1v1',
+        firstTo: 1,
+        structure: kStructureRoundRobin,
+        advancePerGroup: 1,
+        createdAt: 0,
+        teams: const [],
+        groups: const [],
+        groupFixtures: const [],
+        koFixtures: const [],
+      ).toMap()
+        ..remove('note');
+      expect(Tournament.fromDoc('x', old).note, '');
+    });
+
+    test('sửa đội không được làm rơi mất ghi chú', () {
+      final t = Tournament(
+        id: 'x',
+        name: 'G',
+        pin: '1',
+        note: 'giữ nguyên tôi',
+        format: '1v1',
+        firstTo: 1,
+        structure: kStructureRoundRobin,
+        advancePerGroup: 1,
+        createdAt: 0,
+        teams: [team('a'), team('b')],
+        groups: const [],
+        groupFixtures: const [],
+        koFixtures: const [],
+      );
+      expect(t.copyWith(name: 'G2').note, 'giữ nguyên tôi');
+    });
+  });
+
   group('bracketOrder', () {
     test('seed 1 và 2 nằm khác nửa nhánh (chỉ gặp ở chung kết)', () {
       for (final n in [2, 4, 8, 16]) {

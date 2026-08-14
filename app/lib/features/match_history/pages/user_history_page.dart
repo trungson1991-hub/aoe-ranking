@@ -9,6 +9,7 @@ import '../../../core/widgets/selector_chip.dart';
 import '../../../core/widgets/win_rate_bar.dart';
 import '../../leaderboard/models/leaderboard.dart';
 import '../../leaderboard/services/leaderboard_service.dart';
+import '../data/aoe_constants.dart';
 import '../models/match_record.dart';
 import 'match_detail_page.dart';
 
@@ -374,6 +375,24 @@ class _MatchTile extends StatelessWidget {
     );
   }
 
+  /// Dòng chỉ số của chính người đang xem.
+  ///
+  /// Dùng khoảng trắng KHÔNG ngắt dòng giữa icon và số: thẻ hẹp phải xuống
+  /// dòng thì chỉ được ngắt giữa các cặp, không được tách "⏱️" rời khỏi "10:34".
+  static String _statLine(PlayerStat? v) {
+    final age3 = v?.age3Time ?? 0;
+    const nb = '\u00A0'; // khoảng trắng không ngắt dòng
+    return [
+      '⚔️$nb${v?.kills ?? 0}',
+      '💀$nb${v?.losses ?? 0}',
+      '🪙$nb${v?.gold ?? 0}',
+      '👨‍🌾$nb${v?.villager ?? 0}',
+      '🗺️$nb${v?.exploration ?? 0}%',
+      // Mốc BẤM lên đời 3; 0 = chưa lên tới đời 3.
+      '⏱️$nb${age3 > 0 ? matchClock(age3) : '—'}',
+    ].join('   ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final win = rec.win;
@@ -486,8 +505,7 @@ class _MatchTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '⚔️ ${v?.kills ?? 0}   💀 ${v?.losses ?? 0}   '
-                      '🪙 ${v?.gold ?? 0}   🗺️ ${v?.exploration ?? 0}%',
+                      _statLine(v),
                       style: const TextStyle(
                           color: Colors.white38, fontSize: 11),
                     ),

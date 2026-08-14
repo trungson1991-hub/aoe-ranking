@@ -37,6 +37,7 @@ class TournamentCreatePage extends StatefulWidget {
 class _TournamentCreatePageState extends State<TournamentCreatePage> {
   final _name = TextEditingController();
   final _pin = TextEditingController();
+  final _note = TextEditingController();
   // Tiền thưởng theo hạng: nhất / nhì / ba (tuỳ chọn).
   final List<TextEditingController> _prizes =
       List.generate(3, (_) => TextEditingController());
@@ -99,6 +100,7 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
   void dispose() {
     _name.dispose();
     _pin.dispose();
+    _note.dispose();
     for (final c in _prizes) {
       c.dispose();
     }
@@ -223,6 +225,7 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
             id: id,
             name: _name.text.trim(),
             pin: _pin.text.trim(),
+            note: _note.text.trim(),
             format: _format,
             firstTo: _firstTo,
             structure: _structure,
@@ -273,6 +276,17 @@ class _TournamentCreatePageState extends State<TournamentCreatePage> {
               const SizedBox(height: 4),
               const Text('Dùng để nhập kết quả, sửa và xoá giải.',
                   style: TextStyle(color: Colors.white38, fontSize: 12)),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _note,
+                style: const TextStyle(color: Colors.white),
+                // Ghi chú thường là vài dòng thể lệ/giờ đá nên cho ô cao sẵn
+                // và tự giãn thêm, thay vì cuộn ngang trong một dòng.
+                minLines: 2,
+                maxLines: 5,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: _dec('Ghi chú (thể lệ, giờ đá, lưu ý...) — không bắt buộc'),
+              ),
               const SizedBox(height: 14),
               PrizeFields(controllers: _prizes),
               const SizedBox(height: 14),

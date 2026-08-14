@@ -34,16 +34,28 @@ List<Member> roster() => [
         ),
     ];
 
-// Text các ô tên đội (bỏ 5 ô đầu: Tên giải + PIN + 3 ô tiền thưởng).
+// Text các ô tên đội. Nhận diện bằng nhãn thay vì "bỏ N ô đầu": đếm cứng
+// theo thứ tự khiến test vỡ mỗi lần form thêm bớt một ô (đã xảy ra khi thêm
+// ô Ghi chú), mà lỗi báo ra lại chẳng liên quan gì tới đội.
 List<String> teamNameTexts(WidgetTester tester) {
-  final fields = tester.widgetList<TextField>(find.byType(TextField)).toList();
-  return [for (final f in fields.skip(5)) f.controller!.text];
+  return [
+    for (final f in tester.widgetList<TextField>(find.byType(TextField)))
+      if ((f.decoration?.labelText ?? '').startsWith('Tên đội'))
+        f.controller!.text,
+  ];
 }
 
 void main() {
   testWidgets(
       'đội mặc định có tên vui; "Thêm đội" chèn đội mới vào VỊ TRÍ ĐẦU',
       (tester) async {
+    // Khung cao để CẢ form được dựng: body là ListView nên ô nào nằm ngoài
+    // màn hình sẽ không tồn tại trong cây widget, và test tưởng là mất đội.
+    tester.view.physicalSize = const Size(1200, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(MaterialApp(
       home: TournamentCreatePage(
         roster: roster(),

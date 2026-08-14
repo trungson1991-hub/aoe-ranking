@@ -29,3 +29,10 @@ const Map<int, String> kCivNames = {
 
 String civName(int empiresType) =>
     kCivNames[empiresType] ?? 'Quân #$empiresType';
+
+/// Mốc đồng hồ TRONG trận (ms) -> "m:ss". Trận dài quá 60 phút vẫn hiện dạng
+/// phút:giây (vd "64:24"), đúng kiểu bảng thống kê của game.
+String matchClock(int ms) {
+  final s = ms ~/ 1000;
+  return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
+}

@@ -11,6 +11,7 @@ Map<String, dynamic> stat({
   int kills = 20,
   int losses = 20,
   int result = 1,
+  int position = 0,
 }) =>
     {
       'empires_color': color,
@@ -18,6 +19,7 @@ Map<String, dynamic> stat({
       'result': result,
       'kills': kills,
       'losses': losses,
+      'position': position,
     };
 
 MatchRecord parse({
@@ -159,34 +161,32 @@ void main() {
 
   group('viewerIsRealPlayer — trận mà người xem chỉ là viewer thì không tính',
       () {
-    test('người xem đứng SAU người cùng màu -> không phải người chơi thực', () {
-      final r = parse(
-        red: ['first', 'me'],
-        blue: ['b'],
-        stats: {
-          'first': stat(color: 1),
-          'me': stat(color: 1), // trùng slot với 'first'
-          'b': stat(color: 2, result: 2),
-        },
-        team: {'first', 'me', 'b'},
-        viewer: 'me',
-      );
-      expect(r.viewerIsRealPlayer, isFalse);
+    // 'me' chung màu với 'other'. Thứ tự trong mảng CỐ TÌNH luôn đặt 'me'
+    // đứng trước, để chứng minh thứ tự không còn quyết định gì — thứ quyết
+    // định là ai mang số liệu riêng, ai mang bản sao của người khác.
+    MatchRecord withViewer({required bool meMangBanSao}) => parse(
+          red: ['me', 'other'],
+          blue: ['b'],
+          stats: {
+            // Bản sao = trùng khít số liệu của 'b' ở đội đối diện.
+            'me': meMangBanSao
+                ? stat(color: 1, kills: 44, losses: 11, result: 2, position: 1)
+                : stat(color: 1, kills: 30, losses: 20, result: 2, position: 0),
+            'other': meMangBanSao
+                ? stat(color: 1, kills: 30, losses: 20, result: 2, position: 0)
+                : stat(color: 1, kills: 44, losses: 11, result: 2, position: 1),
+            'b': stat(color: 2, kills: 44, losses: 11, position: 4),
+          },
+          team: {'me', 'other', 'b'},
+          viewer: 'me',
+        );
+
+    test('người xem mang bản sao số liệu -> không phải người chơi thực', () {
+      expect(withViewer(meMangBanSao: true).viewerIsRealPlayer, isFalse);
     });
 
-    test('người xem đứng TRƯỚC -> vẫn là người chơi thực', () {
-      final r = parse(
-        red: ['me', 'later'],
-        blue: ['b'],
-        stats: {
-          'me': stat(color: 1),
-          'later': stat(color: 1),
-          'b': stat(color: 2, result: 2),
-        },
-        team: {'me', 'later', 'b'},
-        viewer: 'me',
-      );
-      expect(r.viewerIsRealPlayer, isTrue);
+    test('người xem có số liệu riêng -> là người chơi thực', () {
+      expect(withViewer(meMangBanSao: false).viewerIsRealPlayer, isTrue);
     });
   });
 
@@ -217,6 +217,62 @@ void main() {
       // Cộng cả người xem sẽ ra 93+128=221 thay vì 93.
       expect(r.realRed.fold(0, (a, p) => a + p.kills), 93);
       expect(r.realBlue.fold(0, (a, p) => a + p.kills), 128);
+    });
+
+    // Thứ tự API trả về KHÔNG ổn định: cùng một cặp người, trận này 'dark'
+    // đứng trước, trận sau 'chim' đứng trước. Lấy người đầu mảng là lấy bừa.
+    // Người giữ slot phải là người có số liệu RIÊNG ('dark'), còn 'chim' mang
+    // bản sao số liệu của 'minh' ở đội đối diện.
+    MatchRecord sharedSlotCopyFirst() => parse(
+          red: ['chim', 'dark'], // bản sao đứng TRƯỚC người thật
+          blue: ['minh'],
+          stats: {
+            'chim': stat(color: 1, kills: 60, losses: 41, result: 2),
+            'dark': stat(color: 1, kills: 41, losses: 82, result: 2),
+            'minh': stat(color: 3, kills: 60, losses: 41),
+          },
+          team: {'dark', 'chim', 'minh'},
+          viewer: 'minh',
+        );
+
+    test('người giữ slot là người có số liệu riêng, không phải người đầu mảng',
+        () {
+      final r = sharedSlotCopyFirst();
+      expect(r.realAll.map((p) => p.uuid), ['dark', 'minh']);
+      expect(r.slotSharers['dark']!.map((p) => p.uuid), ['chim']);
+      // Cột chung slot phải mang số của 'dark', không phải bản sao của 'minh'.
+      expect(r.realRed.single.kills, 41);
+      expect(r.red.firstWhere((p) => p.uuid == 'chim').kills, 41);
+    });
+
+    // Số liệu không phân biệt được ai giữ slot -> phải chốt theo ghế, KHÔNG
+    // theo thứ tự mảng. Thứ tự mảng API trả về đổi giữa các trận, để nó quyết
+    // thì ELO nhảy qua nhảy lại giữa hai người mỗi lần tính lại.
+    MatchRecord tie({required bool ghePhaiDungTruoc}) => parse(
+          red: ghePhaiDungTruoc ? ['ghe0', 'ghe1'] : ['ghe1', 'ghe0'],
+          blue: ['minh'],
+          stats: {
+            'ghe0': stat(color: 1, kills: 30, losses: 20, result: 2, position: 0),
+            'ghe1': stat(color: 1, kills: 30, losses: 20, result: 2, position: 1),
+            'minh': stat(color: 3, kills: 44, losses: 11),
+          },
+          team: {'ghe0', 'ghe1', 'minh'},
+          viewer: 'minh',
+        );
+
+    test('2 người cùng màu VÀ số liệu giống hệt -> chốt theo ghế nhỏ hơn', () {
+      for (final ghe0DungTruoc in [true, false]) {
+        final r = tie(ghePhaiDungTruoc: ghe0DungTruoc);
+        expect(r.realAll.map((p) => p.uuid), ['ghe0', 'minh'],
+            reason: 'đổi thứ tự mảng không được đổi người giữ slot');
+        expect(r.slotSharers['ghe0']!.single.uuid, 'ghe1');
+      }
+    });
+
+    test('người giữ slot mới là người được tính vào lịch sử/ELO', () {
+      final r = sharedSlotCopyFirst();
+      expect(r.realPlayerUuids, containsAll(['dark', 'minh']));
+      expect(r.realPlayerUuids.contains('chim'), isFalse);
     });
 
     test('cùng màu -> cùng chỉ số, lấy theo người giữ slot', () {

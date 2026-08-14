@@ -12,8 +12,13 @@ Web tính điểm ELO riêng cho các thành viên team dựa trên API lịch s
 - Chỉ tính trận **nội bộ**: TẤT CẢ người chơi của cả 2 đội đều là thành viên team.
 - Loại **trận "ma"**: (1) chỉ có 1 người chơi hoặc một đội rỗng (Xv0 — không có đối thủ), hoặc
   (2) tổng `kills + losses` (giết + mất quân) của tất cả người chơi `< 5` (không có giao tranh thật).
-- **Trùng màu (`empires_color`)**: nếu nhiều người cùng 1 màu/slot, chỉ **người đầu tiên** (theo thứ tự
-  danh sách) được tính ELO; những người sau là **viewer**, không tác động (không tính trận/thắng/thua).
+- **Trùng màu (`empires_color`)**: 1 màu = 1 slot trong AoE, nên nhiều người cùng màu là **cùng một
+  người chơi** — chỉ **một** người được tính ELO, người còn lại là **viewer**, không tác động
+  (không tính trận/thắng/thua). Giữ ai: người có **bộ số liệu riêng**, tức 10 chỉ số lối chơi không
+  trùng khít với người chơi màu khác nào trong trận (GPlay hay trả cho người còn lại một bản sao số
+  liệu của người khác, kể cả người ở đội đối diện). Nếu vẫn không phân biệt được thì lấy người ngồi
+  **ghế (`position`) nhỏ hơn**, rồi tới `uuid`. **Không** dùng thứ tự danh sách: thứ tự API trả về
+  không ổn định giữa các trận, để nó quyết thì ELO nhảy qua nhảy lại giữa hai người mỗi lần tính lại.
   Số người thực mỗi đội (sau khi bỏ viewer) cũng dùng để xác định thể loại 1v1/2v2/3v3/4v4.
 - **Performance ELO** (không chỉ thắng/thua): mỗi trận, từng chỉ số (giết/mất quân, phá công trình,
   đào vàng, dân số, công nghệ, tốc độ lên đời, mở bản đồ, bơm đồ...) được chuẩn hoá tương đối giữa

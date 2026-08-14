@@ -175,23 +175,72 @@ function isGhost(m) {
   return kd < 5;
 }
 
-// Người chơi THỰC của trận: nếu nhiều người cùng empires_color (cùng 1 slot), chỉ giữ
-// người XUẤT HIỆN ĐẦU TIÊN (theo thứ tự red rồi blue); những người sau là "viewer",
-// bị loại khỏi mọi tính toán ELO. Màu là duy nhất toàn trận trong AoE.
+// Vân tay số liệu lối chơi, dùng để nhận ra bản sao (xem realPlayers).
+// Không lấy result: bản sao vẫn được gán kết quả theo đội của người nhận nên
+// result khác nhau dù số liệu y hệt.
+const FP_KEYS = ['kills', 'losses', 'razings', 'gold_collected', 'villager_high',
+  'total_population', 'technologies', 'exploration', 'tribute_given', 'age'];
+const statFp = (s) => FP_KEYS.map((k) => s?.[k] ?? 0).join('|');
+
+// Người chơi THỰC của trận: nhiều người cùng empires_color là CÙNG MỘT người
+// chơi (1 màu = 1 slot trong AoE), chỉ giữ lại một; người còn lại bị loại khỏi
+// mọi tính toán ELO.
+//
+// Giữ ai: người có bộ số liệu RIÊNG — vân tay không trùng với người chơi màu
+// khác nào trong trận. KHÔNG được lấy người đầu tiên trong mảng: thứ tự API
+// trả về KHÔNG ổn định (cùng một cặp người, trận này người này đứng trước,
+// trận sau người kia), và GPlay hay trả cho người còn lại một bản sao số liệu
+// của người khác, kể cả người ở đội đối diện — trùng khít 10 chỉ số thì không
+// thể là ngẫu nhiên. Phải KHỚP `_bySlot()` bên app Flutter.
 function realPlayers(m) {
   const order = [
     ...(m.red_team_members ?? []).map((x) => ({ uuid: x.user_uuid, idx: 0 })),
     ...(m.blue_team_members ?? []).map((x) => ({ uuid: x.user_uuid, idx: 1 })),
   ];
+  const stt = m.statistics || {};
+  // Màu hợp lệ trong AoE là 1..8. Thiếu màu hoặc 0 = không có dữ liệu ->
+  // không gộp được, coi mỗi người là 1 slot riêng (khớp app Flutter).
+  const colorOf = (p) => stt[p.uuid]?.empires_color ?? 0;
+
+  // Cùng một vân tay xuất hiện ở HAI màu khác nhau = có bản sao.
+  const colorsOfFp = new Map();
+  for (const p of order) {
+    const f = statFp(stt[p.uuid]);
+    if (!colorsOfFp.has(f)) colorsOfFp.set(f, new Set());
+    colorsOfFp.get(f).add(colorOf(p));
+  }
+  const isCopy = (p) => (colorsOfFp.get(statFp(stt[p.uuid]))?.size ?? 1) > 1;
+  // Thiếu position -> 99 để KHÔNG vô tình thắng ở bước phân xử theo ghế.
+  const posOf = (p) =>
+    typeof stt[p.uuid]?.position === 'number' ? stt[p.uuid].position : 99;
+
+  // Ưu tiên người có số liệu riêng. Hoà thì lấy ghế nhỏ hơn (mỗi khi vân tay
+  // quyết được, người nó chọn luôn là người ghế nhỏ nhất trên dữ liệu thật);
+  // hoà nữa thì so uuid. Cốt để kết quả KHÔNG phụ thuộc thứ tự mảng API trả
+  // về — thứ tự đó đổi giữa các trận và sẽ làm ELO nhảy giữa hai người mỗi
+  // lần tính lại. Phải KHỚP `_bySlot()` bên app Flutter.
+  const better = (a, b) => {
+    if (isCopy(a) !== isCopy(b)) return !isCopy(a);
+    if (posOf(a) !== posOf(b)) return posOf(a) < posOf(b);
+    return a.uuid < b.uuid;
+  };
+
+  const owner = new Map(); // color -> người giữ slot
+  const keep = new Set();
+  for (const p of order) {
+    const c = colorOf(p);
+    if (!c) { keep.add(p.uuid); continue; }
+    const cur = owner.get(c);
+    if (!cur || better(p, cur)) owner.set(c, p);
+  }
+  for (const p of owner.values()) keep.add(p.uuid);
+
+  // Giữ nguyên thứ tự xuất hiện cho kết quả ổn định.
   const seen = new Set();
   const real = [];
   for (const p of order) {
-    const color = m.statistics?.[p.uuid]?.empires_color;
-    // Màu hợp lệ trong AoE là 1..8. Thiếu màu hoặc 0 = không có dữ liệu ->
-    // không gộp được, coi mỗi người là 1 slot riêng (khớp app Flutter).
-    const key = !color ? `u:${p.uuid}` : `c:${color}`;
-    if (seen.has(key)) continue; // viewer -> bỏ
-    seen.add(key);
+    if (!keep.has(p.uuid) || seen.has(p.uuid)) continue;
+    seen.add(p.uuid);
     real.push(p);
   }
   return real;

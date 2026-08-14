@@ -32,6 +32,10 @@ class PlayerStat {
   final int tribute; // bơm đồ
   final int age; // thời đại đạt được
 
+  /// Ghế trong phòng (0-3 đội Đỏ, 4-7 đội Xanh). Chỉ dùng để phân xử khi hai
+  /// người cùng màu mà số liệu không phân biệt được ai giữ slot.
+  final int position;
+
   // Mốc BẤM lên đời theo đồng hồ TRONG trận (ms), 0 = chưa lên tới đời đó.
   // Đây KHÔNG phải số thô của API: API trả mốc lên đời xong, `fromApi` đã trừ
   // thời gian nghiên cứu để ra mốc bấm.
@@ -40,6 +44,16 @@ class PlayerStat {
   final int age2Time;
   final int age3Time;
   final int age4Time;
+
+  /// Uuid người GIỮ SLOT của mình; rỗng = tự giữ slot. Khác rỗng nghĩa là mình
+  /// ngồi chung slot với người đó và số liệu ở đây là số của họ.
+  ///
+  /// Quyết định này do `MatchRecord.fromApi` chốt MỘT LẦN trên số liệu thô rồi
+  /// ghi lại vào đây. Không được suy diễn lại về sau: sau khi đồng bộ số liệu,
+  /// bản sao và bản gốc giống hệt nhau nên dấu hiệu để phân biệt đã mất.
+  final String slotOwnerUuid;
+
+  bool get isSlotOwner => slotOwnerUuid.isEmpty || slotOwnerUuid == uuid;
 
   const PlayerStat({
     required this.uuid,
@@ -57,9 +71,11 @@ class PlayerStat {
     required this.exploration,
     required this.tribute,
     required this.age,
+    this.position = 99,
     this.age2Time = 0,
     this.age3Time = 0,
     this.age4Time = 0,
+    this.slotOwnerUuid = '',
   });
 
   String get label => name.isNotEmpty
@@ -88,9 +104,13 @@ class PlayerStat {
         exploration: owner.exploration,
         tribute: owner.tribute,
         age: owner.age,
+        // position là chỗ ngồi của CHÍNH mình, thuộc danh tính chứ không phải
+        // số liệu lối chơi, nên giữ nguyên như uuid/tên.
+        position: position,
         age2Time: owner.age2Time,
         age3Time: owner.age3Time,
         age4Time: owner.age4Time,
+        slotOwnerUuid: owner.uuid,
       );
 
   factory PlayerStat.fromApi(
@@ -115,6 +135,8 @@ class PlayerStat {
       exploration: _int(s['exploration']),
       tribute: _int(s['tribute_given']),
       age: _int(s['age']),
+      // Thiếu position -> 99 để KHÔNG vô tình thắng ở bước phân xử theo ghế.
+      position: (s['position'] is num) ? (s['position'] as num).toInt() : 99,
       age2Time: _clickTime(_int(s['stone_age_upgraded_time']), _age2ResearchMs),
       age3Time: _clickTime(_int(s['bronze_age_upgraded_time']), _age3ResearchMs),
       age4Time: _clickTime(_int(s['steel_age_upgraded_time']), _age4ResearchMs),
@@ -122,19 +144,57 @@ class PlayerStat {
   }
 }
 
-/// Luật gốc về "slot": duyệt theo thứ tự red rồi blue, người ĐẦU TIÊN của mỗi
-/// `empires_color` là người giữ slot; ai cùng màu sau đó là ngồi chung slot với
-/// họ. color <= 0 = thiếu dữ liệu màu -> không gộp được, mỗi người một slot.
-/// Khớp `realPlayers()` trong scripts/compute.mjs.
+/// Luật gốc về "slot": nhiều người cùng `empires_color` là CÙNG MỘT người chơi
+/// (1 màu = 1 slot trong AoE). color <= 0 = thiếu dữ liệu màu -> không gộp
+/// được, mỗi người một slot. Khớp `realPlayers()` trong scripts/compute.mjs.
+///
+/// Người GIỮ SLOT là người có bộ số liệu RIÊNG — vân tay không trùng với người
+/// chơi màu khác nào trong trận. KHÔNG được lấy người đầu tiên trong mảng: thứ
+/// tự API trả về KHÔNG ổn định (cùng một cặp người, trận này người này đứng
+/// trước, trận sau người kia), còn GPlay thì hay trả cho người còn lại một bản
+/// sao số liệu của người khác, kể cả người ở đội đối diện.
 ///
 /// Trả về từng người kèm người giữ slot của họ (`identical` = chính họ giữ).
-/// Cả lúc parse lẫn lúc dẫn xuất danh sách đều gọi hàm này: trước đây luật bị
-/// chép ra ba chỗ và chỉ khớp nhau bằng niềm tin.
+/// Cả lúc parse lẫn lúc dẫn xuất danh sách đều gọi hàm này.
 Iterable<(PlayerStat player, PlayerStat owner)> _bySlot(
     Iterable<PlayerStat> ordered) sync* {
-  final ownerOfColor = <int, PlayerStat>{};
-  for (final p in ordered) {
-    yield p.color <= 0 ? (p, p) : (p, ownerOfColor.putIfAbsent(p.color, () => p));
+  final players = ordered.toList();
+
+  // Vân tay số liệu lối chơi. Không lấy mốc lên đời (đã trừ thời gian nghiên
+  // cứu nên "chưa đạt" lẫn với mốc thật) và không lấy kết quả thắng/thua (bản
+  // sao vẫn bị gán theo đội của người nhận).
+  String fp(PlayerStat p) => '${p.kills}|${p.losses}|${p.razings}|${p.gold}|'
+      '${p.villager}|${p.population}|${p.technologies}|${p.exploration}|'
+      '${p.tribute}|${p.age}';
+
+  // Cùng một vân tay xuất hiện ở HAI màu khác nhau = có bản sao. Trùng khít
+  // 10 chỉ số giữa hai người thì không thể là ngẫu nhiên.
+  final colorsOf = <String, Set<int>>{};
+  for (final p in players) {
+    (colorsOf[fp(p)] ??= <int>{}).add(p.color);
+  }
+  bool isCopy(PlayerStat p) => (colorsOf[fp(p)]?.length ?? 1) > 1;
+
+  // Ưu tiên người có số liệu riêng. Hoà thì lấy ghế nhỏ hơn: mỗi khi vân tay
+  // quyết được, người nó chọn LUÔN là người ghế nhỏ nhất (3/3 trên dữ liệu
+  // thật). Hoà nữa thì so uuid — cốt để kết quả KHÔNG phụ thuộc thứ tự mảng
+  // API trả về, vì thứ tự đó đổi giữa các trận và sẽ làm ELO nhảy qua nhảy lại
+  // giữa hai người mỗi lần tính lại.
+  bool better(PlayerStat a, PlayerStat b) {
+    if (isCopy(a) != isCopy(b)) return !isCopy(a);
+    if (a.position != b.position) return a.position < b.position;
+    return a.uuid.compareTo(b.uuid) < 0;
+  }
+
+  final owner = <int, PlayerStat>{};
+  for (final p in players) {
+    if (p.color <= 0) continue;
+    final cur = owner[p.color];
+    if (cur == null || better(p, cur)) owner[p.color] = p;
+  }
+
+  for (final p in players) {
+    yield p.color <= 0 ? (p, p) : (p, owner[p.color]!);
   }
 }
 
@@ -176,17 +236,21 @@ class MatchRecord {
   List<PlayerStat> get myTeam => _viewerInRed ? realRed : realBlue;
   List<PlayerStat> get oppTeam => _viewerInRed ? realBlue : realRed;
 
-  /// Chỉ mục slot, tính MỘT lượt cho cả hai câu hỏi "ai giữ slot" và "ai ngồi
-  /// chung với ai" — hai thứ này phải luôn nhất quán nên không được tính rời.
+  /// Chỉ mục slot: chỉ ĐỌC LẠI quyết định mà `fromApi` đã chốt trên số liệu
+  /// thô (xem `PlayerStat.slotOwnerUuid`). Không được suy diễn lại từ `all`:
+  /// số liệu ở đây đã đồng bộ nên bản sao và bản gốc giống hệt nhau, dấu hiệu
+  /// phân biệt đã mất và sẽ chọn nhầm người giữ slot.
+  ///
+  /// MatchRecord dựng thẳng (không qua `fromApi`) thì mọi người đều tự giữ slot.
   late final ({Set<String> owners, Map<String, List<PlayerStat>> sharers})
       _slotIndex = () {
     final owners = <String>{};
     final sharers = <String, List<PlayerStat>>{};
-    for (final (p, owner) in _bySlot(all)) {
-      if (identical(p, owner)) {
+    for (final p in all) {
+      if (p.isSlotOwner) {
         owners.add(p.uuid);
       } else {
-        (sharers[owner.uuid] ??= <PlayerStat>[]).add(p);
+        (sharers[p.slotOwnerUuid] ??= <PlayerStat>[]).add(p);
       }
     }
     return (owners: owners, sharers: sharers);

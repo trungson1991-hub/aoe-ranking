@@ -87,7 +87,10 @@ jobs:
             echo "Push bị từ chối, thử lại ($i)..."
             # KHÔNG dùng -X ours: khi rebase, "ours" là bản trên remote nên
             # chiến lược đó vứt đúng dữ liệu ELO vừa tính rồi vẫn báo thành công.
-            git pull --rebase origin "${GITHUB_REF_NAME}" || exit 1
+            # --autostash: các bước build (compute.mjs, flutter pub get, build web)
+            # để lại file tracked bị sửa nhưng không commit; không stash thì rebase
+            # từ chối với "You have unstaged changes".
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || exit 1
           done
           echo "Không push được sau 5 lần thử."
           exit 1

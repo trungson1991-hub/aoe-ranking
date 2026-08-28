@@ -1,9 +1,9 @@
 {
-  "updated_at": 1787903089,
-  "start_epoch": 1772264683,
+  "updated_at": 1787952889,
+  "start_epoch": 1772314482,
   "window_months": 6,
-  "total_matches": 1681,
-  "internal_matches": 570,
+  "total_matches": 1682,
+  "internal_matches": 573,
   "members": [
     {
       "user_uuid": "d6c14b8e-d651-49c6-8287-5a069fe7edbc",
@@ -88,19 +88,19 @@
       "user_uuid": "df398dcf-f4e2-44f5-af37-3dfefa8d6c5a",
       "name": "titi_cuti",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100001/11100001_27c227dd-6d75-4181-90ad-6a95cfe8b82f.png",
-      "last_played": 1787894429,
+      "last_played": 1787917598,
       "total": {
-        "elo": 1312,
-        "games": 263,
-        "wins": 145,
-        "losses": 118
+        "elo": 1268,
+        "games": 266,
+        "wins": 146,
+        "losses": 120
       },
       "modes": {
         "1v1": {
-          "elo": 1087,
-          "games": 49,
-          "wins": 30,
-          "losses": 19
+          "elo": 1061,
+          "games": 52,
+          "wins": 31,
+          "losses": 21
         },
         "2v2": {
           "elo": 1067,
@@ -126,19 +126,19 @@
       "user_uuid": "0b0bb6a4-a2d8-4218-bca0-cd67a242305e",
       "name": "chimsaudm9_8108",
       "avatar_url": "https://cdn-data.gtvplus.vn/avatar/avatar_006.png",
-      "last_played": 1787724123,
+      "last_played": 1787917598,
       "total": {
-        "elo": 819,
-        "games": 366,
-        "wins": 169,
-        "losses": 197
+        "elo": 864,
+        "games": 369,
+        "wins": 171,
+        "losses": 198
       },
       "modes": {
         "1v1": {
-          "elo": 946,
-          "games": 53,
-          "wins": 22,
-          "losses": 31
+          "elo": 972,
+          "games": 56,
+          "wins": 24,
+          "losses": 32
         },
         "2v2": {
           "elo": 947,
@@ -203,7 +203,7 @@
       "user_uuid": "1a9ff917-6fe1-484f-8980-d1d4d4aa4778",
       "name": "14_northside",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100001/11100001_27c227dd-6d75-4181-90ad-6a95cfe8b82f.png",
-      "last_played": 1787896364,
+      "last_played": 1787938710,
       "total": {
         "elo": 999,
         "games": 278,

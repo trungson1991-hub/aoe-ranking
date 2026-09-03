@@ -1,9 +1,9 @@
 {
-  "updated_at": 1788430757,
-  "start_epoch": 1772533148,
+  "updated_at": 1788449147,
+  "start_epoch": 1772551539,
   "window_months": 6,
-  "total_matches": 1683,
-  "internal_matches": 574,
+  "total_matches": 1680,
+  "internal_matches": 577,
   "members": [
     {
       "user_uuid": "d6c14b8e-d651-49c6-8287-5a069fe7edbc",
@@ -12,19 +12,19 @@
       "vip_frame_url": "https://cdn-data.gtvplus.vn/store/item/image/1120/11200303/11200303_5bfe7ea1-9f75-4ccd-8d59-7c26d19968a4.png",
       "background_url": "https://cdn-data.gtvplus.vn/store/item/image/1130/11301535/11301535_6e229d98-a3df-443b-8372-3e5d6e6ccfd7.png",
       "effect_url": "https://cdn-data.gtvplus.vn/store/item/image/1140/11400039/11400039_aaef0d0e-3101-421f-a752-5180dfdb6f4b.png",
-      "last_played": 1788415704,
+      "last_played": 1788437014,
       "total": {
-        "elo": 1299,
-        "games": 248,
-        "wins": 135,
-        "losses": 113
+        "elo": 1282,
+        "games": 251,
+        "wins": 136,
+        "losses": 115
       },
       "modes": {
         "1v1": {
-          "elo": 1032,
-          "games": 42,
-          "wins": 24,
-          "losses": 18
+          "elo": 1021,
+          "games": 45,
+          "wins": 25,
+          "losses": 20
         },
         "2v2": {
           "elo": 1106,
@@ -88,19 +88,19 @@
       "user_uuid": "df398dcf-f4e2-44f5-af37-3dfefa8d6c5a",
       "name": "titi_cuti",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100001/11100001_27c227dd-6d75-4181-90ad-6a95cfe8b82f.png",
-      "last_played": 1788415883,
+      "last_played": 1788437014,
       "total": {
-        "elo": 1264,
-        "games": 268,
-        "wins": 147,
-        "losses": 121
+        "elo": 1282,
+        "games": 271,
+        "wins": 149,
+        "losses": 122
       },
       "modes": {
         "1v1": {
-          "elo": 1061,
-          "games": 52,
-          "wins": 31,
-          "losses": 21
+          "elo": 1072,
+          "games": 55,
+          "wins": 33,
+          "losses": 22
         },
         "2v2": {
           "elo": 1069,

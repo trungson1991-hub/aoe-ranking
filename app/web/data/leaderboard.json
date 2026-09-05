@@ -1,8 +1,8 @@
 {
-  "updated_at": 1788535349,
-  "start_epoch": 1772637740,
+  "updated_at": 1788573155,
+  "start_epoch": 1772675547,
   "window_months": 6,
-  "total_matches": 1681,
+  "total_matches": 1682,
   "internal_matches": 580,
   "members": [
     {
@@ -362,7 +362,7 @@
       "name": "phucyknb",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/0/0_113.png",
       "vip_frame_url": "https://cdn-data.gtvplus.vn/store/item/image/1120/11200219/11200219_95d72e94-f43f-4104-9b9e-a3b7091197fd.png",
-      "last_played": 1788415883,
+      "last_played": 1788516862,
       "total": {
         "elo": 841,
         "games": 60,

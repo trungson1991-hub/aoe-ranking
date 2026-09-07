@@ -3,8 +3,10 @@ name: Cập nhật ELO & deploy web
 on:
   schedule:
     # GitHub cron dùng giờ UTC; giờ VN = UTC+7.
-    # 07:00 13:00 14:00 19:00 20:00 21:00 VN = 00:00 06:00 07:00 12:00 13:00 14:00 UTC.
-    - cron: '0 0,6,7,12,13,14 * * *'
+    # ~07:17 13:17 14:17 19:17 20:17 21:17 VN = 00:17 06:17 07:17 12:17 13:17 14:17 UTC.
+    # Dùng phút 17 thay vì phút 0: đúng đầu giờ là lúc GitHub tải nặng nhất nên
+    # lịch hay bị trễ 10-30' hoặc bỏ hẳn; lệch khỏi đầu giờ chạy ổn định hơn.
+    - cron: '17 0,6,7,12,13,14 * * *'
   workflow_dispatch: {}
   push:
     branches: [main]
@@ -40,7 +42,15 @@ jobs:
       # FIREBASE_SERVICE_ACCOUNT: nội dung file JSON service account, đặt trong
       # Settings -> Secrets and variables -> Actions. App CHỈ ĐỌC kho này, chỉ
       # CI mới có quyền ghi.
+      #
+      # continue-on-error: nếu bước này hỏng (secret Firebase hết hạn, mạng...)
+      # thì KHÔNG được chặn build+deploy web. Trước đây bước này hỏng là cả job
+      # dừng, deploy (needs: build) không chạy, và web đóng băng nhiều ngày. Cho
+      # phép chạy tiếp: web vẫn deploy với leaderboard.json đã commit lần trước,
+      # bước này vẫn hiện đỏ trên Actions để còn biết mà xử lý.
       - name: Đồng bộ kho trận + tính ELO
+        id: elo
+        continue-on-error: true
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: node scripts/compute.mjs
@@ -69,7 +79,13 @@ jobs:
 
       # Chỉ lưu dữ liệu SAU KHI build thành công, để repo và web không lệch nhau.
       # [skip ci] để không tự kích hoạt lại workflow.
+      #
+      # continue-on-error: commit/push ELO ngược vào repo là việc PHỤ. Nếu push
+      # bị từ chối (nhánh main bật branch protection, yêu cầu PR/review...) thì
+      # cũng KHÔNG được chặn deploy — nếu không, cả site đóng băng như đã xảy ra.
+      # Bước vẫn hiện đỏ trên Actions để biết mà xử lý branch protection.
       - name: Lưu dữ liệu
+        continue-on-error: true
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

@@ -41,7 +41,7 @@ class TournamentDetailPage extends StatelessWidget {
             tooltip: 'Sao chép link giải',
             icon: const Icon(Icons.share_outlined, size: 20),
             onPressed: () async {
-              final link = tournamentShareLink(Uri.base, tournamentId);
+              final link = tournamentShareLink(shareBase(), tournamentId);
               await Clipboard.setData(ClipboardData(text: link));
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(

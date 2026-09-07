@@ -4,6 +4,8 @@ import 'package:aoe_ranking/features/tournament/logic/fixture_edit.dart';
 import 'package:aoe_ranking/features/tournament/logic/group_assign.dart';
 import 'package:aoe_ranking/features/tournament/logic/knockout.dart';
 import 'package:aoe_ranking/features/tournament/logic/round_robin.dart';
+import 'package:aoe_ranking/features/leaderboard/services/leaderboard_service.dart'
+    show kDeployedBaseUrl;
 import 'package:aoe_ranking/features/tournament/logic/share_link.dart';
 import 'package:aoe_ranking/features/tournament/logic/standings.dart';
 import 'package:aoe_ranking/features/tournament/logic/tournament_edit.dart';
@@ -492,6 +494,15 @@ void main() {
       final link = tournamentShareLink(
           Uri.parse('https://user.github.io/aoe-ranking/?_=123#/x'), 'abc-1');
       expect(link, 'https://user.github.io/aoe-ranking/?t=abc-1');
+    });
+
+    test('mobile (không phải web): dùng URL site đã deploy, không phải Uri.base',
+        () {
+      // Trong test kIsWeb = false -> shareBase() phải trả URL đã deploy để link
+      // copy trên app mở đúng giải trên web (trước đây lấy Uri.base ra file://).
+      final link = tournamentShareLink(shareBase(), 'abc-1');
+      expect(link, '$kDeployedBaseUrl?t=abc-1');
+      expect(link, 'https://trungson1991-hub.github.io/aoe-ranking/?t=abc-1');
     });
   });
 

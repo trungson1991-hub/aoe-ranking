@@ -220,8 +220,16 @@ class _TournamentEditPageState extends State<TournamentEditPage> {
         }
         return;
       }
-      final updated =
-          applyTeamEdits(latest, teams: newTeams, groups: newGroups).copyWith(
+      // Chỉ khi NGƯỜI DÙNG thật sự chuyển đội sang bảng khác (`changed` khác
+      // rỗng) mới đụng tới lịch/kết quả qua applyTeamEdits. Sửa tên giải, ghi
+      // chú, TIỀN THƯỞNG, tên đội hay thành viên KHÔNG được tạo lại lịch: nếu
+      // vẫn đi qua applyTeamEdits, chỉ cần bảng của `latest` lệch với ảnh chụp
+      // trên trang này (dữ liệu cũ, sai định dạng, hay ai đó vừa sửa) là toàn
+      // bộ tỉ số đã nhập bị xoá sạch dù lần lưu này vô hại.
+      final base = changed.isEmpty
+          ? latest.copyWith(teams: newTeams)
+          : applyTeamEdits(latest, teams: newTeams, groups: newGroups);
+      final updated = base.copyWith(
         name: _name.text.trim(),
         note: _note.text.trim(),
         prizes: [for (final c in _prizes) parseMoney(c.text)],

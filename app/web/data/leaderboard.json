@@ -1,9 +1,9 @@
 {
-  "updated_at": 1788866114,
-  "start_epoch": 1772968505,
+  "updated_at": 1788885385,
+  "start_epoch": 1772987776,
   "window_months": 6,
-  "total_matches": 1654,
-  "internal_matches": 578,
+  "total_matches": 1659,
+  "internal_matches": 581,
   "members": [
     {
       "user_uuid": "d6c14b8e-d651-49c6-8287-5a069fe7edbc",
@@ -12,19 +12,19 @@
       "vip_frame_url": "https://cdn-data.gtvplus.vn/store/item/image/1120/11200303/11200303_5bfe7ea1-9f75-4ccd-8d59-7c26d19968a4.png",
       "background_url": "https://cdn-data.gtvplus.vn/store/item/image/1130/11301535/11301535_6e229d98-a3df-443b-8372-3e5d6e6ccfd7.png",
       "effect_url": "https://cdn-data.gtvplus.vn/store/item/image/1140/11400039/11400039_aaef0d0e-3101-421f-a752-5180dfdb6f4b.png",
-      "last_played": 1788865226,
+      "last_played": 1788867462,
       "total": {
-        "elo": 1295,
-        "games": 254,
-        "wins": 139,
-        "losses": 115
+        "elo": 1284,
+        "games": 257,
+        "wins": 140,
+        "losses": 117
       },
       "modes": {
         "1v1": {
-          "elo": 1038,
-          "games": 48,
-          "wins": 27,
-          "losses": 21
+          "elo": 1029,
+          "games": 51,
+          "wins": 28,
+          "losses": 23
         },
         "2v2": {
           "elo": 1108,
@@ -88,19 +88,19 @@
       "user_uuid": "df398dcf-f4e2-44f5-af37-3dfefa8d6c5a",
       "name": "titi_cuti",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100001/11100001_27c227dd-6d75-4181-90ad-6a95cfe8b82f.png",
-      "last_played": 1788865226,
+      "last_played": 1788867462,
       "total": {
-        "elo": 1283,
-        "games": 280,
-        "wins": 155,
-        "losses": 125
+        "elo": 1295,
+        "games": 283,
+        "wins": 157,
+        "losses": 126
       },
       "modes": {
         "1v1": {
-          "elo": 1056,
-          "games": 58,
-          "wins": 34,
-          "losses": 24
+          "elo": 1065,
+          "games": 61,
+          "wins": 36,
+          "losses": 25
         },
         "2v2": {
           "elo": 1098,
@@ -203,7 +203,7 @@
       "user_uuid": "1a9ff917-6fe1-484f-8980-d1d4d4aa4778",
       "name": "14_northside",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100001/11100001_27c227dd-6d75-4181-90ad-6a95cfe8b82f.png",
-      "last_played": 1788847369,
+      "last_played": 1788883630,
       "total": {
         "elo": 997,
         "games": 270,

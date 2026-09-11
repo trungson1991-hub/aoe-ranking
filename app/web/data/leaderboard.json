@@ -1,8 +1,8 @@
 {
-  "updated_at": 1789115275,
-  "start_epoch": 1773217668,
+  "updated_at": 1789125449,
+  "start_epoch": 1773227841,
   "window_months": 6,
-  "total_matches": 1649,
+  "total_matches": 1647,
   "internal_matches": 585,
   "members": [
     {
@@ -165,7 +165,7 @@
       "name": "thuhoai55_7667",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100066/11100066_86.png",
       "vip_frame_url": "https://cdn-data.gtvplus.vn/store/item/image/1120/11200213/11200213_87501016-4ca0-4339-aef2-e25c79abd7fa.png",
-      "last_played": 1789106006,
+      "last_played": 1789125282,
       "total": {
         "elo": 741,
         "games": 271,
@@ -362,7 +362,7 @@
       "name": "phucyknb",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/0/0_113.png",
       "vip_frame_url": "https://cdn-data.gtvplus.vn/store/item/image/1120/11200219/11200219_95d72e94-f43f-4104-9b9e-a3b7091197fd.png",
-      "last_played": 1789106517,
+      "last_played": 1789121918,
       "total": {
         "elo": 870,
         "games": 68,

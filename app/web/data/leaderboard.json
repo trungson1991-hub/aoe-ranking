@@ -1,9 +1,9 @@
 {
-  "updated_at": 1789125449,
-  "start_epoch": 1773227841,
+  "updated_at": 1789143986,
+  "start_epoch": 1773246379,
   "window_months": 6,
-  "total_matches": 1647,
-  "internal_matches": 585,
+  "total_matches": 1645,
+  "internal_matches": 588,
   "members": [
     {
       "user_uuid": "d6c14b8e-d651-49c6-8287-5a069fe7edbc",
@@ -50,19 +50,19 @@
       "user_uuid": "6747bca9-681b-459c-aa5a-309ef5fee99a",
       "name": "DarkTitan",
       "avatar_url": "https://cdn-data.gtvplus.vn/avatar/avatar_001.png",
-      "last_played": 1789106006,
+      "last_played": 1789129066,
       "total": {
-        "elo": 827,
-        "games": 329,
-        "wins": 149,
-        "losses": 180
+        "elo": 822,
+        "games": 332,
+        "wins": 150,
+        "losses": 182
       },
       "modes": {
         "1v1": {
-          "elo": 912,
-          "games": 55,
-          "wins": 16,
-          "losses": 39
+          "elo": 911,
+          "games": 58,
+          "wins": 17,
+          "losses": 41
         },
         "2v2": {
           "elo": 906,
@@ -126,19 +126,19 @@
       "user_uuid": "0b0bb6a4-a2d8-4218-bca0-cd67a242305e",
       "name": "chimsaudm9_8108",
       "avatar_url": "https://cdn-data.gtvplus.vn/avatar/avatar_006.png",
-      "last_played": 1789106006,
+      "last_played": 1789129066,
       "total": {
-        "elo": 850,
-        "games": 356,
-        "wins": 167,
-        "losses": 189
+        "elo": 855,
+        "games": 359,
+        "wins": 169,
+        "losses": 190
       },
       "modes": {
         "1v1": {
-          "elo": 974,
-          "games": 49,
-          "wins": 21,
-          "losses": 28
+          "elo": 975,
+          "games": 52,
+          "wins": 23,
+          "losses": 29
         },
         "2v2": {
           "elo": 949,

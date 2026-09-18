@@ -1,8 +1,8 @@
 {
-  "updated_at": 1789729843,
-  "start_epoch": 1773832234,
+  "updated_at": 1789748538,
+  "start_epoch": 1773850928,
   "window_months": 6,
-  "total_matches": 1658,
+  "total_matches": 1648,
   "internal_matches": 610,
   "members": [
     {
@@ -126,7 +126,7 @@
       "user_uuid": "0b0bb6a4-a2d8-4218-bca0-cd67a242305e",
       "name": "chimsaudm9_8108",
       "avatar_url": "https://cdn-data.gtvplus.vn/avatar/avatar_006.png",
-      "last_played": 1789711252,
+      "last_played": 1789732441,
       "total": {
         "elo": 903,
         "games": 369,

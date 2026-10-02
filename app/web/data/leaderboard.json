@@ -1,8 +1,8 @@
 {
-  "updated_at": 1790880723,
-  "start_epoch": 1775069513,
+  "updated_at": 1790919197,
+  "start_epoch": 1775107990,
   "window_months": 6,
-  "total_matches": 1574,
+  "total_matches": 1570,
   "internal_matches": 654,
   "members": [
     {
@@ -88,7 +88,7 @@
       "user_uuid": "df398dcf-f4e2-44f5-af37-3dfefa8d6c5a",
       "name": "titi_cuti",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100001/11100001_27c227dd-6d75-4181-90ad-6a95cfe8b82f.png",
-      "last_played": 1790853456,
+      "last_played": 1790918758,
       "total": {
         "elo": 1258,
         "games": 326,
@@ -242,7 +242,7 @@
       "name": "TrumNho",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100066/11100066_86.png",
       "vip_frame_url": "https://cdn-data.gtvplus.vn/frameVIP/frame_017.png",
-      "last_played": 1790834863,
+      "last_played": 1790918758,
       "total": {
         "elo": 1002,
         "games": 260,

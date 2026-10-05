@@ -1,9 +1,9 @@
 {
-  "updated_at": 1791178506,
-  "start_epoch": 1775367298,
+  "updated_at": 1791210738,
+  "start_epoch": 1775399529,
   "window_months": 6,
-  "total_matches": 1580,
-  "internal_matches": 652,
+  "total_matches": 1581,
+  "internal_matches": 658,
   "members": [
     {
       "user_uuid": "d6c14b8e-d651-49c6-8287-5a069fe7edbc",
@@ -12,18 +12,18 @@
       "vip_frame_url": "https://cdn-data.gtvplus.vn/store/item/image/1120/11200303/11200303_5bfe7ea1-9f75-4ccd-8d59-7c26d19968a4.png",
       "background_url": "https://cdn-data.gtvplus.vn/store/item/image/1130/11301535/11301535_6e229d98-a3df-443b-8372-3e5d6e6ccfd7.png",
       "effect_url": "https://cdn-data.gtvplus.vn/store/item/image/1140/11400039/11400039_aaef0d0e-3101-421f-a752-5180dfdb6f4b.png",
-      "last_played": 1791177326,
+      "last_played": 1791204331,
       "total": {
-        "elo": 1277,
-        "games": 286,
-        "wins": 155,
-        "losses": 131
+        "elo": 1273,
+        "games": 291,
+        "wins": 157,
+        "losses": 134
       },
       "modes": {
         "1v1": {
-          "elo": 1101,
-          "games": 74,
-          "wins": 46,
+          "elo": 1111,
+          "games": 76,
+          "wins": 48,
           "losses": 28
         },
         "2v2": {
@@ -33,10 +33,10 @@
           "losses": 35
         },
         "3v3": {
-          "elo": 1128,
-          "games": 68,
+          "elo": 1114,
+          "games": 71,
           "wins": 37,
-          "losses": 31
+          "losses": 34
         },
         "4v4": {
           "elo": 1094,
@@ -88,11 +88,11 @@
       "user_uuid": "df398dcf-f4e2-44f5-af37-3dfefa8d6c5a",
       "name": "titi_cuti",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100001/11100001_27c227dd-6d75-4181-90ad-6a95cfe8b82f.png",
-      "last_played": 1790995013,
+      "last_played": 1791204331,
       "total": {
-        "elo": 1256,
-        "games": 323,
-        "wins": 176,
+        "elo": 1273,
+        "games": 326,
+        "wins": 179,
         "losses": 147
       },
       "modes": {
@@ -109,9 +109,9 @@
           "losses": 29
         },
         "3v3": {
-          "elo": 1189,
-          "games": 87,
-          "wins": 47,
+          "elo": 1212,
+          "games": 90,
+          "wins": 50,
           "losses": 40
         },
         "4v4": {
@@ -126,11 +126,11 @@
       "user_uuid": "0b0bb6a4-a2d8-4218-bca0-cd67a242305e",
       "name": "chimsaudm9_8108",
       "avatar_url": "https://cdn-data.gtvplus.vn/avatar/avatar_006.png",
-      "last_played": 1790766901,
+      "last_played": 1791204331,
       "total": {
-        "elo": 939,
-        "games": 369,
-        "wins": 181,
+        "elo": 949,
+        "games": 372,
+        "wins": 184,
         "losses": 188
       },
       "modes": {
@@ -147,9 +147,9 @@
           "losses": 59
         },
         "3v3": {
-          "elo": 887,
-          "games": 82,
-          "wins": 34,
+          "elo": 904,
+          "games": 85,
+          "wins": 37,
           "losses": 48
         },
         "4v4": {
@@ -165,18 +165,18 @@
       "name": "thuhoai55_7667",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100066/11100066_86.png",
       "vip_frame_url": "https://cdn-data.gtvplus.vn/store/item/image/1120/11200213/11200213_87501016-4ca0-4339-aef2-e25c79abd7fa.png",
-      "last_played": 1791124985,
+      "last_played": 1791204331,
       "total": {
         "elo": 762,
-        "games": 266,
-        "wins": 133,
-        "losses": 133
+        "games": 270,
+        "wins": 134,
+        "losses": 136
       },
       "modes": {
         "1v1": {
-          "elo": 942,
-          "games": 17,
-          "wins": 6,
+          "elo": 952,
+          "games": 18,
+          "wins": 7,
           "losses": 11
         },
         "2v2": {
@@ -186,10 +186,10 @@
           "losses": 43
         },
         "3v3": {
-          "elo": 915,
-          "games": 79,
+          "elo": 894,
+          "games": 82,
           "wins": 40,
-          "losses": 39
+          "losses": 42
         },
         "4v4": {
           "elo": 857,
@@ -203,19 +203,19 @@
       "user_uuid": "1a9ff917-6fe1-484f-8980-d1d4d4aa4778",
       "name": "14_northside",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100001/11100001_27c227dd-6d75-4181-90ad-6a95cfe8b82f.png",
-      "last_played": 1791117412,
+      "last_played": 1791204331,
       "total": {
-        "elo": 964,
-        "games": 260,
+        "elo": 937,
+        "games": 264,
         "wins": 136,
-        "losses": 124
+        "losses": 128
       },
       "modes": {
         "1v1": {
-          "elo": 958,
-          "games": 28,
+          "elo": 948,
+          "games": 29,
           "wins": 12,
-          "losses": 16
+          "losses": 17
         },
         "2v2": {
           "elo": 974,
@@ -224,10 +224,10 @@
           "losses": 43
         },
         "3v3": {
-          "elo": 1014,
-          "games": 88,
+          "elo": 996,
+          "games": 91,
           "wins": 52,
-          "losses": 36
+          "losses": 39
         },
         "4v4": {
           "elo": 1011,
@@ -242,19 +242,19 @@
       "name": "TrumNho",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100066/11100066_86.png",
       "vip_frame_url": "https://cdn-data.gtvplus.vn/frameVIP/frame_017.png",
-      "last_played": 1790948803,
+      "last_played": 1791204331,
       "total": {
-        "elo": 1069,
-        "games": 267,
-        "wins": 130,
-        "losses": 137
+        "elo": 1074,
+        "games": 272,
+        "wins": 133,
+        "losses": 139
       },
       "modes": {
         "1v1": {
-          "elo": 1006,
-          "games": 44,
+          "elo": 996,
+          "games": 46,
           "wins": 20,
-          "losses": 24
+          "losses": 26
         },
         "2v2": {
           "elo": 1010,
@@ -263,9 +263,9 @@
           "losses": 36
         },
         "3v3": {
-          "elo": 1038,
-          "games": 67,
-          "wins": 35,
+          "elo": 1051,
+          "games": 70,
+          "wins": 38,
           "losses": 32
         },
         "4v4": {

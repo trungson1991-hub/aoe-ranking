@@ -1,8 +1,8 @@
 {
-  "updated_at": 1791551573,
-  "start_epoch": 1775740365,
+  "updated_at": 1791571709,
+  "start_epoch": 1775760501,
   "window_months": 6,
-  "total_matches": 1525,
+  "total_matches": 1528,
   "internal_matches": 654,
   "members": [
     {
@@ -12,7 +12,7 @@
       "vip_frame_url": "https://cdn-data.gtvplus.vn/store/item/image/1120/11200303/11200303_5bfe7ea1-9f75-4ccd-8d59-7c26d19968a4.png",
       "background_url": "https://cdn-data.gtvplus.vn/store/item/image/1130/11301535/11301535_6e229d98-a3df-443b-8372-3e5d6e6ccfd7.png",
       "effect_url": "https://cdn-data.gtvplus.vn/store/item/image/1140/11400039/11400039_aaef0d0e-3101-421f-a752-5180dfdb6f4b.png",
-      "last_played": 1791550554,
+      "last_played": 1791553239,
       "total": {
         "elo": 1269,
         "games": 286,
@@ -50,7 +50,7 @@
       "user_uuid": "6747bca9-681b-459c-aa5a-309ef5fee99a",
       "name": "DarkTitan",
       "avatar_url": "https://cdn-data.gtvplus.vn/avatar/avatar_001.png",
-      "last_played": 1791291652,
+      "last_played": 1791567533,
       "total": {
         "elo": 759,
         "games": 318,

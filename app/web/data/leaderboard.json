@@ -1,8 +1,8 @@
 {
-  "updated_at": 1791784361,
-  "start_epoch": 1775973153,
+  "updated_at": 1791818277,
+  "start_epoch": 1776007068,
   "window_months": 6,
-  "total_matches": 1492,
+  "total_matches": 1490,
   "internal_matches": 650,
   "members": [
     {
@@ -88,7 +88,7 @@
       "user_uuid": "df398dcf-f4e2-44f5-af37-3dfefa8d6c5a",
       "name": "titi_cuti",
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100001/11100001_27c227dd-6d75-4181-90ad-6a95cfe8b82f.png",
-      "last_played": 1791291652,
+      "last_played": 1791801980,
       "total": {
         "elo": 1284,
         "games": 322,

@@ -1,8 +1,8 @@
 {
-  "updated_at": 1792903020,
-  "start_epoch": 1777091813,
+  "updated_at": 1792927302,
+  "start_epoch": 1777116093,
   "window_months": 6,
-  "total_matches": 1385,
+  "total_matches": 1381,
   "internal_matches": 598,
   "members": [
     {
@@ -50,7 +50,7 @@
       "user_uuid": "6747bca9-681b-459c-aa5a-309ef5fee99a",
       "name": "DarkTitan",
       "avatar_url": "https://cdn-data.gtvplus.vn/avatar/avatar_001.png",
-      "last_played": 1791567533,
+      "last_played": 1792926367,
       "total": {
         "elo": 765,
         "games": 293,

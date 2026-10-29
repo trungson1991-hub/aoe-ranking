@@ -1,9 +1,9 @@
 {
-  "updated_at": 1793252607,
-  "start_epoch": 1777441400,
+  "updated_at": 1793278559,
+  "start_epoch": 1777467350,
   "window_months": 6,
-  "total_matches": 1361,
-  "internal_matches": 593,
+  "total_matches": 1357,
+  "internal_matches": 588,
   "members": [
     {
       "user_uuid": "d6c14b8e-d651-49c6-8287-5a069fe7edbc",
@@ -12,9 +12,9 @@
       "vip_frame_url": "https://cdn-data.gtvplus.vn/store/item/image/1120/11200303/11200303_5bfe7ea1-9f75-4ccd-8d59-7c26d19968a4.png",
       "background_url": "https://cdn-data.gtvplus.vn/store/item/image/1130/11301535/11301535_6e229d98-a3df-443b-8372-3e5d6e6ccfd7.png",
       "effect_url": "https://cdn-data.gtvplus.vn/store/item/image/1140/11400039/11400039_aaef0d0e-3101-421f-a752-5180dfdb6f4b.png",
-      "last_played": 1793251426,
+      "last_played": 1793253210,
       "total": {
-        "elo": 1250,
+        "elo": 1244,
         "games": 265,
         "wins": 145,
         "losses": 120
@@ -39,7 +39,7 @@
           "losses": 22
         },
         "4v4": {
-          "elo": 1094,
+          "elo": 1092,
           "games": 77,
           "wins": 40,
           "losses": 37
@@ -52,17 +52,17 @@
       "avatar_url": "https://cdn-data.gtvplus.vn/avatar/avatar_001.png",
       "last_played": 1792926367,
       "total": {
-        "elo": 770,
-        "games": 288,
-        "wins": 115,
-        "losses": 173
+        "elo": 765,
+        "games": 283,
+        "wins": 113,
+        "losses": 170
       },
       "modes": {
         "1v1": {
-          "elo": 880,
-          "games": 58,
-          "wins": 15,
-          "losses": 43
+          "elo": 882,
+          "games": 55,
+          "wins": 14,
+          "losses": 41
         },
         "2v2": {
           "elo": 835,
@@ -77,10 +77,10 @@
           "losses": 30
         },
         "4v4": {
-          "elo": 891,
-          "games": 92,
-          "wins": 46,
-          "losses": 46
+          "elo": 887,
+          "games": 90,
+          "wins": 45,
+          "losses": 45
         }
       }
     },
@@ -90,10 +90,10 @@
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100001/11100001_27c227dd-6d75-4181-90ad-6a95cfe8b82f.png",
       "last_played": 1792732669,
       "total": {
-        "elo": 1271,
-        "games": 302,
-        "wins": 165,
-        "losses": 137
+        "elo": 1266,
+        "games": 300,
+        "wins": 164,
+        "losses": 136
       },
       "modes": {
         "1v1": {
@@ -115,10 +115,10 @@
           "losses": 31
         },
         "4v4": {
-          "elo": 1180,
-          "games": 88,
-          "wins": 46,
-          "losses": 42
+          "elo": 1171,
+          "games": 86,
+          "wins": 45,
+          "losses": 41
         }
       }
     },
@@ -128,17 +128,17 @@
       "avatar_url": "https://cdn-data.gtvplus.vn/avatar/avatar_006.png",
       "last_played": 1791291652,
       "total": {
-        "elo": 979,
-        "games": 326,
-        "wins": 163,
-        "losses": 163
+        "elo": 974,
+        "games": 321,
+        "wins": 160,
+        "losses": 161
       },
       "modes": {
         "1v1": {
           "elo": 1018,
-          "games": 69,
-          "wins": 33,
-          "losses": 36
+          "games": 66,
+          "wins": 31,
+          "losses": 35
         },
         "2v2": {
           "elo": 977,
@@ -153,10 +153,10 @@
           "losses": 33
         },
         "4v4": {
-          "elo": 1022,
-          "games": 88,
-          "wins": 47,
-          "losses": 41
+          "elo": 1030,
+          "games": 86,
+          "wins": 46,
+          "losses": 40
         }
       }
     },
@@ -167,7 +167,7 @@
       "vip_frame_url": "https://cdn-data.gtvplus.vn/store/item/image/1120/11200213/11200213_87501016-4ca0-4339-aef2-e25c79abd7fa.png",
       "last_played": 1792843530,
       "total": {
-        "elo": 766,
+        "elo": 762,
         "games": 240,
         "wins": 119,
         "losses": 121
@@ -192,7 +192,7 @@
           "losses": 31
         },
         "4v4": {
-          "elo": 857,
+          "elo": 858,
           "games": 75,
           "wins": 36,
           "losses": 39
@@ -205,14 +205,14 @@
       "avatar_url": "https://cdn-data.gtvplus.vn/store/item/image/1110/11100001/11100001_27c227dd-6d75-4181-90ad-6a95cfe8b82f.png",
       "last_played": 1791291652,
       "total": {
-        "elo": 922,
+        "elo": 917,
         "games": 233,
         "wins": 117,
         "losses": 116
       },
       "modes": {
         "1v1": {
-          "elo": 942,
+          "elo": 943,
           "games": 28,
           "wins": 11,
           "losses": 17
@@ -230,7 +230,7 @@
           "losses": 27
         },
         "4v4": {
-          "elo": 1011,
+          "elo": 1012,
           "games": 62,
           "wins": 33,
           "losses": 29
@@ -244,14 +244,14 @@
       "vip_frame_url": "https://cdn-data.gtvplus.vn/frameVIP/frame_017.png",
       "last_played": 1791291652,
       "total": {
-        "elo": 1056,
-        "games": 245,
-        "wins": 112,
-        "losses": 133
+        "elo": 1050,
+        "games": 243,
+        "wins": 111,
+        "losses": 132
       },
       "modes": {
         "1v1": {
-          "elo": 988,
+          "elo": 989,
           "games": 44,
           "wins": 18,
           "losses": 26
@@ -269,10 +269,10 @@
           "losses": 28
         },
         "4v4": {
-          "elo": 980,
-          "games": 86,
-          "wins": 41,
-          "losses": 45
+          "elo": 984,
+          "games": 84,
+          "wins": 40,
+          "losses": 44
         }
       }
     },
@@ -285,10 +285,10 @@
       "effect_url": "https://cdn-data.gtvplus.vn/store/item/image/1140/11400025/11400025_4e7a279e-1428-4ffb-8e57-91ac5b06d35c.png",
       "last_played": 1791544611,
       "total": {
-        "elo": 1164,
-        "games": 181,
-        "wins": 96,
-        "losses": 85
+        "elo": 1158,
+        "games": 179,
+        "wins": 95,
+        "losses": 84
       },
       "modes": {
         "1v1": {
@@ -310,10 +310,10 @@
           "losses": 13
         },
         "4v4": {
-          "elo": 1113,
-          "games": 74,
-          "wins": 39,
-          "losses": 35
+          "elo": 1108,
+          "games": 72,
+          "wins": 38,
+          "losses": 34
         }
       }
     },
@@ -325,10 +325,10 @@
       "background_url": "https://cdn-data.gtvplus.vn/store/item/image/1130/11301311/11301311_b2b39951-c798-4c0a-843d-798fdf698989.png",
       "last_played": 1791544611,
       "total": {
-        "elo": 1168,
-        "games": 178,
-        "wins": 91,
-        "losses": 87
+        "elo": 1162,
+        "games": 176,
+        "wins": 90,
+        "losses": 86
       },
       "modes": {
         "1v1": {
@@ -350,10 +350,10 @@
           "losses": 10
         },
         "4v4": {
-          "elo": 1045,
-          "games": 84,
-          "wins": 39,
-          "losses": 45
+          "elo": 1043,
+          "games": 82,
+          "wins": 38,
+          "losses": 44
         }
       }
     },
@@ -364,7 +364,7 @@
       "vip_frame_url": "https://cdn-data.gtvplus.vn/store/item/image/1120/11200219/11200219_95d72e94-f43f-4104-9b9e-a3b7091197fd.png",
       "last_played": 1790834599,
       "total": {
-        "elo": 888,
+        "elo": 885,
         "games": 90,
         "wins": 43,
         "losses": 47
@@ -404,14 +404,14 @@
       "background_url": "https://cdn-data.gtvplus.vn/store/item/image/1130/11301307/11301307_35635df0-0948-45a8-bb4a-819d52b765cd.png",
       "last_played": 1780985324,
       "total": {
-        "elo": 1010,
+        "elo": 1004,
         "games": 24,
         "wins": 15,
         "losses": 9
       },
       "modes": {
         "1v1": {
-          "elo": 987,
+          "elo": 988,
           "games": 1,
           "wins": 0,
           "losses": 1
@@ -429,7 +429,7 @@
           "losses": 5
         },
         "4v4": {
-          "elo": 998,
+          "elo": 997,
           "games": 7,
           "wins": 4,
           "losses": 3
@@ -442,14 +442,14 @@
       "avatar_url": "https://cdn-data.gtvplus.vn/avatar/avatar_001.png",
       "last_played": 1784527390,
       "total": {
-        "elo": 1004,
-        "games": 38,
-        "wins": 22,
-        "losses": 16
+        "elo": 1012,
+        "games": 36,
+        "wins": 21,
+        "losses": 15
       },
       "modes": {
         "1v1": {
-          "elo": 1028,
+          "elo": 1029,
           "games": 2,
           "wins": 2,
           "losses": 0
@@ -467,10 +467,10 @@
           "losses": 7
         },
         "4v4": {
-          "elo": 974,
-          "games": 12,
-          "wins": 5,
-          "losses": 7
+          "elo": 972,
+          "games": 10,
+          "wins": 4,
+          "losses": 6
         }
       }
     },
@@ -518,14 +518,14 @@
       "avatar_url": "https://cdn-data.gtvplus.vn/avatar/avatar_001.png",
       "last_played": 1783153833,
       "total": {
-        "elo": 1032,
-        "games": 61,
-        "wins": 32,
-        "losses": 29
+        "elo": 1028,
+        "games": 59,
+        "wins": 31,
+        "losses": 28
       },
       "modes": {
         "1v1": {
-          "elo": 1061,
+          "elo": 1062,
           "games": 10,
           "wins": 9,
           "losses": 1
@@ -543,10 +543,10 @@
           "losses": 12
         },
         "4v4": {
-          "elo": 1014,
-          "games": 20,
-          "wins": 10,
-          "losses": 10
+          "elo": 1013,
+          "games": 18,
+          "wins": 9,
+          "losses": 9
         }
       }
     }

@@ -1,8 +1,8 @@
 {
-  "updated_at": 1793300192,
-  "start_epoch": 1777488985,
+  "updated_at": 1793338972,
+  "start_epoch": 1777527766,
   "window_months": 6,
-  "total_matches": 1356,
+  "total_matches": 1357,
   "internal_matches": 588,
   "members": [
     {
@@ -12,7 +12,7 @@
       "vip_frame_url": "https://cdn-data.gtvplus.vn/store/item/image/1120/11200303/11200303_5bfe7ea1-9f75-4ccd-8d59-7c26d19968a4.png",
       "background_url": "https://cdn-data.gtvplus.vn/store/item/image/1130/11301535/11301535_6e229d98-a3df-443b-8372-3e5d6e6ccfd7.png",
       "effect_url": "https://cdn-data.gtvplus.vn/store/item/image/1140/11400039/11400039_aaef0d0e-3101-421f-a752-5180dfdb6f4b.png",
-      "last_played": 1793253210,
+      "last_played": 1793338685,
       "total": {
         "elo": 1244,
         "games": 265,
